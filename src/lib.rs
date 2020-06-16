@@ -1,178 +1,277 @@
-use roxmltree::{Document, Node, Error as XmlError};
+#[macro_use] extern crate lazy_static;
+
+use roxmltree::{Document, Node, Error as XmlError, NodeType};
 use pathfinder_geometry::{
     vector::Vector2F,
-    transform2d::Matrix2x2F,
+    transform2d::{Matrix2x2F, Transform2F},
+    rect::RectF,
+    line_segment::LineSegment2F,
 };
-use pathfinder_canvas::{Path2D};
+use pathfinder_content::{
+    outline::{Outline, ArcDirection, Contour},
+    stroke::{OutlineStrokeToFill, StrokeStyle, LineCap, LineJoin}
+};
+use pathfinder_renderer::{
+    scene::{Scene, DrawPath},
+    paint::Paint,
+};
+use pathfinder_color::ColorU;
+use std::sync::Arc;
 
+use svgtypes::{Error as SvgError, Length, LengthListParser};
+
+mod path;
+use path::*;
+
+mod debug;
+use debug::*;
+
+mod text;
+use text::*;
+
+#[derive(Debug)]
 pub struct Svg {
+    items: Vec<Item>,
+    view_box: Option<Rect>,
+}
+impl Svg {
+    pub fn compose(&self) -> Scene {
+        let mut scene = Scene::new();
+        if let Some(ref r) = self.view_box {
+            scene.set_view_box(dbg!(r.as_rectf()));
+        }
+        self.compose_to(&mut scene, Transform2F::default());
+        scene
+    }
+    pub fn compose_to(&self, scene: &mut Scene, tr: Transform2F) {
+        let options = DrawOptions::new(tr);
+        for item in &self.items {
+            item.compose_to(scene, &options);
+        }
+    }
 }
 
-pub struct Group<'a> {
-    node: Node<'a>
+#[derive(Clone)]
+struct DrawOptions {
+    fill: Option<Paint>,
+    stroke: Option<Paint>,
+    stroke_style: StrokeStyle,
+    transform: Transform2F,
+    debug_font: Arc<FontCollection>,
+}
+impl DrawOptions {
+    fn new(transform: Transform2F) -> DrawOptions {
+        DrawOptions {
+            fill: None,
+            stroke: None,
+            stroke_style: StrokeStyle {
+                line_width: 1.0,
+                line_cap: LineCap::Butt,
+                line_join: LineJoin::Bevel,
+            },
+            transform,
+            debug_font: Arc::new(FontCollection::debug()),
+        }
+    }
+    fn draw(&self, scene: &mut Scene, path: &Outline) {
+        if let Some(ref fill) = self.fill {
+            let paint_id = scene.push_paint(fill);
+            let draw_path = DrawPath::new(path.clone().transformed(&self.transform), paint_id);
+            scene.push_draw_path(draw_path);
+        }
+        if let Some(ref stroke) = self.stroke {
+            let paint_id = scene.push_paint(stroke);
+            let mut stroke = OutlineStrokeToFill::new(path, self.stroke_style);
+            stroke.offset();
+            let path = stroke.into_outline();
+            let draw_path = DrawPath::new(path.transformed(&self.transform), paint_id);
+            scene.push_draw_path(draw_path);
+        }
+    }
+    fn apply(&self, attrs: &Attrs) -> DrawOptions {
+        let mut stroke_style = self.stroke_style;
+        if let Some(length) = attrs.stroke_width {
+            stroke_style.line_width = length.num as f32;
+        }
+        DrawOptions {
+            transform: self.transform * attrs.transform,
+            fill: merge(&attrs.fill, &self.fill),
+            stroke: merge(&attrs.stroke, &self.stroke),
+            stroke_style,
+            debug_font: self.debug_font.clone()
+        }
+    }
+}
+
+fn merge<T: Clone>(a: &Option<T>, b: &Option<T>) -> Option<T> {
+    match (a, b) {
+        (_, &Some(ref b)) => Some(b.clone()),
+        (&Some(ref a), &None) => Some(a.clone()),
+        (&None, &None) => None
+    }
+}
+
+#[derive(Debug)]
+pub enum ItemKind {
+    Path(Outline),
+    G(Vec<Item>),
+}
+
+#[derive(Debug)]
+pub struct Item {
+    kind: ItemKind,
+    attrs: Attrs,
+    debug: DebugInfo,
+}
+
+impl Item {
+    fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+        let mut options = options.apply(&self.attrs);
+        match self.kind {
+            ItemKind::G(ref items) => {
+                for item in items {
+                    item.compose_to(scene, &options);
+                }
+            }
+            ItemKind::Path(ref outline) => {
+                options.draw(scene, outline);
+
+                options.fill = Some(Paint::black());
+                options.stroke = None;
+                self.debug.draw(scene, &options);
+            }
+        }
+    }
+}
+#[derive(Debug)]
+pub struct Attrs {
+    pub transform: Transform2F,
+    pub fill: Option<Paint>,
+    pub stroke: Option<Paint>,
+    pub stroke_width: Option<Length>,
 }
 
 #[derive(Debug)]
 pub enum Error {
-    XML(XmlError)
+    Xml(XmlError),
+    Svg(SvgError),
+    TooShort,
+    Unimplemented
 }
 impl From<XmlError> for Error {
     fn from(e: XmlError) -> Self {
-        Error::XML(e)
+        Error::Xml(e)
+    }
+}
+impl From<SvgError> for Error {
+    fn from(e: SvgError) -> Self {
+        Error::Svg(e)
     }
 }
 
 pub fn parse(data: &str) -> Result<Svg, Error> {
     let doc = Document::parse(data)?;
-    let root = doc.root();
+    dbg!(&doc);
+    let root = doc.root_element();
+    dbg!(root.tag_name());
     assert!(root.has_tag_name("svg"));
+    let view_box = root.attribute("viewBox").map(|v| parse_rect(v)).transpose()?;
 
-    for child in root.children() {
-        parse_node(child)?;
-    }
+    let items = parse_list(root.children())?;
 
-    Ok(Svg {})
+    Ok(Svg { items, view_box })
 }
 
-fn parse_node(node: &Node) {
-    match node.tag_name().name() {
-        "path" => parse_path(node),
-
-    }
-}
-
-#[inline]
-fn vec<T: Into<f32>>(x: T, y: T) -> Vector2F {
-    Vector2F::new(x.into(), y.into())
-}
-
-#[inline]
-fn reflect_on(last: Option<Vector2F>, point: Vector2F) -> Vector2F {
-    match last {
-        Some(c) => point * 2.0 - last,
-        None => point
-    }
-}
-
-fn parse_path(node: &Node) {
-    let mut path = Path2D::new();
-    use svgtypes::{PathParser, PathSegment};
-    if let Some(d) = node.attribute("d") {
-        let mut last = Vector2F::default();
-        let mut last_quadratic_control_point = None;
-        let mut last_cubic_control_point = None;
-        for segment in  PathParser::from(d) {
-            match segment {
-                PathSegment::MoveTo { abs, x, y } => {
-                    let mut p = vec(x, y);
-                    if !abs {
-                        p = last + p;
-                    }
-                    path.move_to(v);
-                    last = v;
-                }
-                PathSegment::LineTo { abs, x, y } => {
-                    let mut v = vec(x, y);
-                    if !abs {
-                        v = last + v;
-                    }
-                    path.line_to(v);
-                    last = v;
-                }
-                PathSegment::HorizontalLineTo { abs, x } => {
-                    let mut p = vec(x, 0.0);
-                    if !abs {
-                        p = last + p;
-                    }
-                    path.line_to(p);
-                    last = p;
-                }
-                PathSegment::VerticalLineTo { abs, y } => {
-                    let mut p = vec(0.0, y);
-                    if !abs {
-                        p = last + p;
-                    }
-                    path.line_to(0);
-                    last = p;
-                }
-                PathSegment::CurveTo { abs, x1, y1, x2, y2, x, y } => {
-                    let mut c1 = vec(x1, y1);
-                    let mut c2 = vec(x2, y2);
-                    let mut p = vec(x, y);
-                    if abs {
-                        c1 = last + c1;
-                        c2 = last + c2;
-                        p = last + p;
-                    }
-
-                    path.bezier_curve_to(c1, c2, p);
-                    last = p;
-                    last_cubic_control_point = Some(c2);
-                }
-                PathSegment::SmoothCurveTo { abs, x2, y2, x, y } => {
-                    let mut c2 = vec(x2, y2);
-                    let mut p = vec(x, y);
-                    if abs {
-                        c2 = last + c2;
-                        p = last + p;
-                    }
-                    let c1 = reflect_on(last_cubic_control_point, p);
-
-                    path.bezier_curve_to(c1, c2, p);
-                    last = p;
-                    last_cubic_control_point = Some(c2);
-                }
-                PathSegment::Quadratic { abs, x1, y1, x, y } => {
-                    let mut c1 = vec(x1, y1);
-                    let mut p = vec(x, y);
-                    if abs {
-                        c1 = last + c1;
-                        p = last + p;
-                    }
-
-                    path.quadratic_curve_to(c1, p);
-                    last = p;
-                    last_quadratic_control_point = Some(c1);
-                }
-                PathSegment::SmoothQuadratic { abs, x, y } => {
-                    let mut p = vec(x, y);
-                    if abs {
-                        p = last + p;
-                    }
-                    let c1 = reflect_on(last_quadratic_control_point, p);
-
-                    path.quadratic_curve_to(c1, p);
-                    last = p;
-                    last_quadratic_control_point = Some(c1);
-                }
-                PathSegment::EllipticalArc { abs, rx, ry, x_axis_rotation, large_arc, sweep, x, y } => {
-                    let r = vec(rx, ry);
-                    let mut p = vec(x, y);
-                    if abs {
-                        p = last + p;
-                    }
-                    let r_inv = r.inv();
-                    let sign = if large_arc == sweep { 1.0 } else { -1.0 };
-                    let rot = Matrix2x2F::from_rotation(x_axis_rotation);
-                    let r2 = r * r;
-                    let r2_prod = r2.x() * r2.y(); // r_x^2 r_y^2
-                    // x'
-                    let q = rot.adjugate() * (last - p) * 0.5;
-                    let q2 = q * q;
-                    let rq2 = r2 * q2.yx(); // (r_x^2 q_y^2, r_y^2 q_x^2)
-                    let rq2_sum = rq2.x() + rq2.y(); // r_x^2 q_y^2 + r_y^2 q_x^2
-                    // c'
-                    let s = vec(1f32, -1f32) * r * q.yx() * r_inv.yx() * ((r2_prod - rq2_sum) / (rq2_sum)).sqrt() * sign;
-                    let c = rot * s + (last + p) * 0.5;
-                    
-                    let a = vec(1f32, 0f32);
-                    let b = (q - s) * r_inv;
-                    let c = -(q + s) * r_inv;
-                    let start_angle = a.angle_to(b);
-                    let end_angle = b.angle_to(c);
-                    path.ellipse(c, r, x_axis_rotation, start_angle, end_angle);
-                }
-            }
+fn parse_list<'a, 'i: 'a>(nodes: impl Iterator<Item=Node<'a, 'i>>) -> Result<Vec<Item>, Error> {
+    let mut items = Vec::new();
+    for node in nodes {
+        match node.node_type() {
+            NodeType::Element => items.push(parse_node(&node)?),
+            _ => {}
         }
     }
+    Ok(items)
+}
+
+#[derive(Debug)]
+struct Rect {
+    origin: (Length, Length),
+    size: (Length, Length)
+}
+impl Rect {
+    fn as_rectf(&self) -> RectF {
+        let (x, y) = self.origin;
+        let (w, h) = self.size;
+        RectF::new(vec(x.num, y.num), vec(w.num, h.num))
+    }
+}
+
+fn parse_rect(s: &str) -> Result<Rect, Error> {
+    let mut p = LengthListParser::from(s);
+    let x = p.next().ok_or(Error::TooShort)??;
+    let y = p.next().ok_or(Error::TooShort)??;
+    let w = p.next().ok_or(Error::TooShort)??;
+    let h = p.next().ok_or(Error::TooShort)??;
+    Ok(Rect {
+        origin: (x, y),
+        size: (w, h)
+    })
+}
+
+fn parse_node(node: &Node) -> Result<Item, Error> {
+    match node.tag_name().name() {
+        "path" => parse_path(node),
+        "g" => parse_g(node),
+        _ => Err(Error::Unimplemented)
+    }
+}
+
+fn parse_g(node: &Node) -> Result<Item, Error> {
+    let attrs = parse_attrs(node)?;
+    let children = parse_list(node.children())?;
+    Ok(Item { kind: ItemKind::G(children), attrs, debug: DebugInfo::new() })
+}
+
+fn parse_attrs(node: &Node) -> Result<Attrs, Error> {
+    use svgtypes::{TransformListParser, TransformListToken};
+    let mut transform = Transform2F::default();
+
+    if let Some(value) = node.attribute("transform") {
+        for op in TransformListParser::from(value) {
+            let tr = match op? {
+                TransformListToken::Matrix { a, b, c, d, e, f } => Transform2F::row_major(a as f32, c as f32, e as f32, b as f32, d as f32, f as f32),
+                TransformListToken::Translate { tx, ty } => Transform2F::from_translation(vec(tx, ty)),
+                TransformListToken::Scale { sx, sy } => Transform2F::from_scale(vec(sx, sy)),
+                TransformListToken::Rotate { angle } => Transform2F::from_rotation(angle as f32),
+                TransformListToken::SkewX { angle } => Transform2F::row_major(1.0, angle.tan() as f32, 0.0, 0.0, 1.0, 0.0),
+                TransformListToken::SkewY { angle} => Transform2F::row_major(1.0, 0.0, 0.0, angle.tan() as f32, 1.0, 0.0),
+            };
+            transform = transform * tr;
+        }
+    }
+
+    let fill = match node.attribute("fill") {
+        Some(val) => parse_paint(val)?,
+        _ => None
+    };
+    let stroke = match node.attribute("stroke") {
+        Some(val) => parse_paint(val)?,
+        _ => None
+    };
+    let stroke_width = node.attribute("stroke-width").map(|val| val.parse()).transpose()?;
+    Ok(Attrs { transform, fill, stroke, stroke_width })
+}
+
+fn parse_paint(value: &str) -> Result<Option<Paint>, Error> {
+    use svgtypes::{Color};
+    Ok(match svgtypes::Paint::from_str(value)? {
+        svgtypes::Paint::Color(Color { red, green, blue }) => Some(Paint::from_color(ColorU::new(red, green, blue, 255))),
+        svgtypes::Paint::None => None,
+        _ => None
+    })
+}
+
+#[inline]
+fn vec(x: f64, y: f64) -> Vector2F {
+    Vector2F::new(x as f32, y as f32)
 }
