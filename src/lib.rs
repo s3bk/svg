@@ -1,38 +1,59 @@
+#[cfg(feature="debug")]
 #[macro_use] extern crate lazy_static;
 
-use roxmltree::{Document, Node, Error as XmlError, NodeType};
-use pathfinder_geometry::{
-    vector::Vector2F,
-    transform2d::{Matrix2x2F, Transform2F},
-    rect::RectF,
-    line_segment::LineSegment2F,
-};
+use roxmltree::{Document, Node, NodeType};
 use pathfinder_content::{
-    outline::{Outline, ArcDirection, Contour},
-    stroke::{OutlineStrokeToFill, StrokeStyle, LineCap, LineJoin}
+    outline::{Outline},
+    stroke::{OutlineStrokeToFill, StrokeStyle, LineCap, LineJoin},
+    fill::{FillRule},
+    gradient::Gradient,
 };
 use pathfinder_renderer::{
     scene::{Scene, DrawPath},
-    paint::Paint,
+    paint::Paint as PaPaint,
 };
 use pathfinder_color::ColorU;
+
+use svgtypes::{Length, LengthListParser, Color};
 use std::sync::Arc;
 
-use svgtypes::{Error as SvgError, Length, LengthListParser};
+mod prelude;
+
+mod util;
+use util::*;
 
 mod path;
-use path::*;
+use path::TagPath;
+
+mod rect;
+use rect::TagRect;
+
+mod polygon;
+use polygon::TagPolygon;
 
 mod debug;
-use debug::*;
 
+mod error;
+mod attrs;
+use attrs::*;
+
+mod gradient;
+use gradient::{TagLinearGradient, TagRadialGradient};
+
+#[cfg(feature="text")]
 mod text;
+
+#[cfg(feature="text")]
 use text::*;
+
+use prelude::*;
+
 
 #[derive(Debug)]
 pub struct Svg {
-    items: Vec<Item>,
+    items: Vec<Arc<Item>>,
     view_box: Option<Rect>,
+    named_items: ItemCollection,
 }
 impl Svg {
     pub fn compose(&self) -> Scene {
@@ -40,46 +61,119 @@ impl Svg {
         if let Some(ref r) = self.view_box {
             scene.set_view_box(dbg!(r.as_rectf()));
         }
-        self.compose_to(&mut scene, Transform2F::default());
+        let ctx = DrawContext {
+            svg: self,
+            dpi: 75.0,
+
+            #[cfg(feature="debug")]
+            debug_font: Arc::new(FontCollection::debug()),
+            #[cfg(feature="debug")]
+            debug: false,
+        };
+        self.compose_to(&mut scene, DrawOptions::new(&ctx));
         scene
     }
-    pub fn compose_to(&self, scene: &mut Scene, tr: Transform2F) {
-        let options = DrawOptions::new(tr);
+    pub fn compose_to(&self, scene: &mut Scene, options: DrawOptions) {
         for item in &self.items {
             item.compose_to(scene, &options);
         }
     }
+    pub fn parse<'a>(doc: &'a Document) -> Result<Svg, Error<'a>> {
+        let root = doc.root_element();
+        dbg!(root.tag_name());
+        assert!(root.has_tag_name("svg"));
+        let view_box = root.attribute("viewBox").map(Rect::parse).transpose()?;
+    
+        let items = parse_node_list(root.children())?;
+    
+        let mut named_items = ItemCollection::new();
+        for item in &items {
+            link(&mut named_items, item);
+        }
+    
+        Ok(Svg { items, view_box, named_items })
+    }
+}
+
+pub struct DrawContext<'a> {
+    svg: &'a Svg,
+
+    #[cfg(feature="debug")]
+    debug_font: Arc<FontCollection>,
+    #[cfg(feature="debug")]
+    debug: bool,
+
+    dpi: f32,
+}
+impl<'a> DrawContext<'a> {
+    pub fn resolve(&self, id: &str) -> Option<&Arc<Item>> {
+        self.svg.named_items.get(id)
+    }
 }
 
 #[derive(Clone)]
-struct DrawOptions {
+pub struct DrawOptions<'a> {
+    ctx: &'a DrawContext<'a>,
+
     fill: Option<Paint>,
+    fill_rule: FillRule,
+    fill_opacity: f32,
+
     stroke: Option<Paint>,
     stroke_style: StrokeStyle,
+    stroke_opacity: f32,
+
     transform: Transform2F,
-    debug_font: Arc<FontCollection>,
+
 }
-impl DrawOptions {
-    fn new(transform: Transform2F) -> DrawOptions {
+impl<'a> DrawOptions<'a> {
+    pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {
         DrawOptions {
+            ctx,
             fill: None,
+            fill_rule: FillRule::EvenOdd,
+            fill_opacity: 1.0,
             stroke: None,
+            stroke_opacity: 1.0,
             stroke_style: StrokeStyle {
                 line_width: 1.0,
                 line_cap: LineCap::Butt,
                 line_join: LineJoin::Bevel,
             },
-            transform,
-            debug_font: Arc::new(FontCollection::debug()),
+            transform: Transform2F::default(),
+        }
+    }
+    pub fn transform(mut self, transform: Transform2F) -> DrawOptions<'a> {
+        self.transform = transform;
+        self
+    }
+    #[cfg(feature="debug")]
+    pub fn debug(mut self) -> DrawOptions {
+        self.debug = true;
+        self
+    }
+    fn resolve_paint(&self, paint: &Option<Paint>, opacity: f32) -> Option<PaPaint> {
+        match *paint {
+            Some(Paint::Color(Color { red, green, blue })) => Some(PaPaint::from_color(ColorU::new(red, green, blue, (255. * opacity) as u8))),
+            Some(Paint::Ref(ref id)) => match self.ctx.svg.named_items.get(id).map(|arc| &**arc) {
+                Some(Item::LinearGradient(ref gradient)) => Some(PaPaint::from_gradient(gradient.build(self, opacity))),
+                Some(Item::RadialGradient(ref gradient)) => Some(PaPaint::from_gradient(gradient.build(self, opacity))),
+                r => {
+                    dbg!(id, r);
+                    None
+                }
+            }
+            _ => None
         }
     }
     fn draw(&self, scene: &mut Scene, path: &Outline) {
-        if let Some(ref fill) = self.fill {
+        if let Some(ref fill) = self.resolve_paint(&self.fill, self.fill_opacity) {
             let paint_id = scene.push_paint(fill);
-            let draw_path = DrawPath::new(path.clone().transformed(&self.transform), paint_id);
+            let mut draw_path = DrawPath::new(path.clone().transformed(&self.transform), paint_id);
+            draw_path.set_fill_rule(self.fill_rule);
             scene.push_draw_path(draw_path);
         }
-        if let Some(ref stroke) = self.stroke {
+        if let Some(ref stroke) = self.resolve_paint(&self.stroke, self.stroke_opacity) {
             let paint_id = scene.push_paint(stroke);
             let mut stroke = OutlineStrokeToFill::new(path, self.stroke_style);
             stroke.offset();
@@ -96,10 +190,35 @@ impl DrawOptions {
         DrawOptions {
             transform: self.transform * attrs.transform,
             fill: merge(&attrs.fill, &self.fill),
+            fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
+            fill_opacity: attrs.fill_opacity.unwrap_or(self.fill_opacity),
             stroke: merge(&attrs.stroke, &self.stroke),
             stroke_style,
-            debug_font: self.debug_font.clone()
+            stroke_opacity: attrs.stroke_opacity.unwrap_or(self.stroke_opacity),
+            #[cfg(feature="debug")]
+            debug_font: self.debug_font.clone(),
+            .. *self
         }
+    }
+    fn resolve_length(&self, length: Length) -> f32 {
+        let scale = match length.unit {
+            LengthUnit::None => 1.0,
+            LengthUnit::Cm => self.ctx.dpi * (1.0 / 2.54),
+            LengthUnit::Em => unimplemented!(),
+            LengthUnit::Ex => unimplemented!(),
+            LengthUnit::In => self.ctx.dpi,
+            LengthUnit::Mm => self.ctx.dpi * (1.0 / 25.4),
+            LengthUnit::Pc => unimplemented!(),
+            LengthUnit::Percent => unimplemented!(),
+            LengthUnit::Pt => self.ctx.dpi * (1.0 / 75.),
+            LengthUnit::Px => 1.0
+        };
+        length.num as f32 * scale
+    }
+    fn resolve_point(&self, (x, y): (Length, Length)) -> Vector2F {
+        let x = self.resolve_length(x);
+        let y = self.resolve_length(y);
+        vec2f(x, y)
     }
 }
 
@@ -112,166 +231,94 @@ fn merge<T: Clone>(a: &Option<T>, b: &Option<T>) -> Option<T> {
 }
 
 #[derive(Debug)]
-pub enum ItemKind {
-    Path(Outline),
-    G(Vec<Item>),
-}
-
-#[derive(Debug)]
-pub struct Item {
-    kind: ItemKind,
-    attrs: Attrs,
-    debug: DebugInfo,
+pub enum Item {
+    Path(TagPath),
+    G(TagG),
+    Defs(TagDefs),
+    Rect(TagRect),
+    Polygon(TagPolygon),
+    LinearGradient(TagLinearGradient),
+    RadialGradient(TagRadialGradient),
 }
 
 impl Item {
     fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let mut options = options.apply(&self.attrs);
-        match self.kind {
-            ItemKind::G(ref items) => {
-                for item in items {
-                    item.compose_to(scene, &options);
-                }
-            }
-            ItemKind::Path(ref outline) => {
-                options.draw(scene, outline);
+        match *self {
+            Item::G(ref tag) => tag.compose_to(scene, &options),
+            Item::Path(ref tag) => tag.compose_to(scene, &options),
+            Item::Rect(ref tag) => tag.compose_to(scene, &options),
+            Item::Polygon(ref tag) => tag.compose_to(scene, &options),
+            _ => {}
+        }
+    }
+}
 
-                options.fill = Some(Paint::black());
-                options.stroke = None;
-                self.debug.draw(scene, &options);
-            }
+#[derive(Debug)]
+pub struct TagG {
+    items: Vec<Arc<Item>>,
+    attrs: Attrs,
+}
+impl TagG {
+    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+        let options = options.apply(&self.attrs);
+        for item in &self.items {
+            item.compose_to(scene, &options);
         }
     }
 }
 #[derive(Debug)]
-pub struct Attrs {
-    pub transform: Transform2F,
-    pub fill: Option<Paint>,
-    pub stroke: Option<Paint>,
-    pub stroke_width: Option<Length>,
+pub struct TagDefs {
+    items: Vec<Arc<Item>>,
 }
 
-#[derive(Debug)]
-pub enum Error {
-    Xml(XmlError),
-    Svg(SvgError),
-    TooShort,
-    Unimplemented
-}
-impl From<XmlError> for Error {
-    fn from(e: XmlError) -> Self {
-        Error::Xml(e)
-    }
-}
-impl From<SvgError> for Error {
-    fn from(e: SvgError) -> Self {
-        Error::Svg(e)
+fn link(ids: &mut ItemCollection, item: &Arc<Item>) {
+    match &**item {
+        Item::G(g) => g.items.iter().for_each(|item| link(ids, item)),
+        Item::Defs(defs) => defs.items.iter().for_each(|item| link(ids, item)),
+        Item::LinearGradient(TagLinearGradient { id: Some(id), .. }) => { ids.insert(id.clone(), item.clone()); }
+        Item::RadialGradient(TagRadialGradient { id: Some(id), .. }) => { ids.insert(id.clone(), item.clone()); }
+        _ => {}
     }
 }
 
-pub fn parse(data: &str) -> Result<Svg, Error> {
-    let doc = Document::parse(data)?;
-    dbg!(&doc);
-    let root = doc.root_element();
-    dbg!(root.tag_name());
-    assert!(root.has_tag_name("svg"));
-    let view_box = root.attribute("viewBox").map(|v| parse_rect(v)).transpose()?;
 
-    let items = parse_list(root.children())?;
-
-    Ok(Svg { items, view_box })
-}
-
-fn parse_list<'a, 'i: 'a>(nodes: impl Iterator<Item=Node<'a, 'i>>) -> Result<Vec<Item>, Error> {
+fn parse_node_list<'a, 'i: 'a>(nodes: impl Iterator<Item=Node<'a, 'i>>) -> Result<Vec<Arc<Item>>, Error<'a>> {
     let mut items = Vec::new();
     for node in nodes {
         match node.node_type() {
-            NodeType::Element => items.push(parse_node(&node)?),
+            NodeType::Element => {
+                if let Some(item) = parse_node(&node)? {
+                    items.push(Arc::new(item));
+                }
+            }
             _ => {}
         }
     }
     Ok(items)
 }
 
-#[derive(Debug)]
-struct Rect {
-    origin: (Length, Length),
-    size: (Length, Length)
-}
-impl Rect {
-    fn as_rectf(&self) -> RectF {
-        let (x, y) = self.origin;
-        let (w, h) = self.size;
-        RectF::new(vec(x.num, y.num), vec(w.num, h.num))
-    }
-}
-
-fn parse_rect(s: &str) -> Result<Rect, Error> {
-    let mut p = LengthListParser::from(s);
-    let x = p.next().ok_or(Error::TooShort)??;
-    let y = p.next().ok_or(Error::TooShort)??;
-    let w = p.next().ok_or(Error::TooShort)??;
-    let h = p.next().ok_or(Error::TooShort)??;
-    Ok(Rect {
-        origin: (x, y),
-        size: (w, h)
+fn parse_node<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Option<Item>, Error<'i>> {
+    Ok(match node.tag_name().name() {
+        "title" | "desc" => None,
+        "defs" => Some(Item::Defs(tag_defs(node)?)),
+        "path" => Some(Item::Path(TagPath::parse(node)?)),
+        "g" => Some(Item::G(tag_g(node)?)),
+        "rect" => Some(Item::Rect(TagRect::parse(node)?)),
+        "polygon" => Some(Item::Polygon(TagPolygon::parse(node)?)),
+        "linearGradient" => Some(Item::LinearGradient(TagLinearGradient::parse(node)?)),
+        "radialGradient" => Some(Item::RadialGradient(TagRadialGradient::parse(node)?)),
+        tag => return Err(Error::Unimplemented(tag))
     })
 }
 
-fn parse_node(node: &Node) -> Result<Item, Error> {
-    match node.tag_name().name() {
-        "path" => parse_path(node),
-        "g" => parse_g(node),
-        _ => Err(Error::Unimplemented)
-    }
+
+fn tag_g<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagG, Error<'i>> {
+    let attrs = Attrs::parse(node)?;
+    let items = parse_node_list(node.children())?;
+    Ok(TagG { items, attrs })
 }
 
-fn parse_g(node: &Node) -> Result<Item, Error> {
-    let attrs = parse_attrs(node)?;
-    let children = parse_list(node.children())?;
-    Ok(Item { kind: ItemKind::G(children), attrs, debug: DebugInfo::new() })
-}
-
-fn parse_attrs(node: &Node) -> Result<Attrs, Error> {
-    use svgtypes::{TransformListParser, TransformListToken};
-    let mut transform = Transform2F::default();
-
-    if let Some(value) = node.attribute("transform") {
-        for op in TransformListParser::from(value) {
-            let tr = match op? {
-                TransformListToken::Matrix { a, b, c, d, e, f } => Transform2F::row_major(a as f32, c as f32, e as f32, b as f32, d as f32, f as f32),
-                TransformListToken::Translate { tx, ty } => Transform2F::from_translation(vec(tx, ty)),
-                TransformListToken::Scale { sx, sy } => Transform2F::from_scale(vec(sx, sy)),
-                TransformListToken::Rotate { angle } => Transform2F::from_rotation(angle as f32),
-                TransformListToken::SkewX { angle } => Transform2F::row_major(1.0, angle.tan() as f32, 0.0, 0.0, 1.0, 0.0),
-                TransformListToken::SkewY { angle} => Transform2F::row_major(1.0, 0.0, 0.0, angle.tan() as f32, 1.0, 0.0),
-            };
-            transform = transform * tr;
-        }
-    }
-
-    let fill = match node.attribute("fill") {
-        Some(val) => parse_paint(val)?,
-        _ => None
-    };
-    let stroke = match node.attribute("stroke") {
-        Some(val) => parse_paint(val)?,
-        _ => None
-    };
-    let stroke_width = node.attribute("stroke-width").map(|val| val.parse()).transpose()?;
-    Ok(Attrs { transform, fill, stroke, stroke_width })
-}
-
-fn parse_paint(value: &str) -> Result<Option<Paint>, Error> {
-    use svgtypes::{Color};
-    Ok(match svgtypes::Paint::from_str(value)? {
-        svgtypes::Paint::Color(Color { red, green, blue }) => Some(Paint::from_color(ColorU::new(red, green, blue, 255))),
-        svgtypes::Paint::None => None,
-        _ => None
-    })
-}
-
-#[inline]
-fn vec(x: f64, y: f64) -> Vector2F {
-    Vector2F::new(x as f32, y as f32)
+fn tag_defs<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagDefs, Error<'i>> {
+    let items = parse_node_list(node.children())?;
+    Ok(TagDefs { items })
 }

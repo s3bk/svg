@@ -1185,6 +1185,7 @@ dependencies = [
  "pathfinder_content",
  "pathfinder_geometry",
  "pathfinder_renderer",
+ "pathfinder_simd",
  "pathfinder_view",
  "roxmltree",
  "svgtypes",

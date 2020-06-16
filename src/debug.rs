@@ -8,20 +8,25 @@ use crate::{DrawOptions};
 
 #[derive(Debug)]
 pub struct DebugInfo {
+    #[cfg(feature="debug")]
     labels: Vec<(DebugEntry, String)>
 }
 impl DebugInfo {
     pub fn new() -> DebugInfo {
         DebugInfo {
+            #[cfg(feature="debug")]
             labels: Vec::new()
         }
     }
     pub fn add_point(&mut self, position: Vector2F, label: impl Into<String>) {
+        #[cfg(feature="debug")]
         self.labels.push((DebugEntry::Point { position }, label.into()));
     }
     pub fn add_vector(&mut self, origin: Vector2F, direction: Vector2F, label: impl Into<String>) {
+        #[cfg(feature="debug")]
         self.labels.push((DebugEntry::Vector { origin, direction }, label.into()));
     }
+    #[cfg(feature="debug")]
     pub (crate) fn draw(&self, scene: &mut Scene, options: &DrawOptions) {
         if self.labels.is_empty() {
             return;
@@ -37,6 +42,7 @@ impl DebugInfo {
     }
 }
 
+#[cfg(feature="debug")]
 #[derive(Debug)]
 enum DebugEntry {
     Point { position: Vector2F },
