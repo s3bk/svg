@@ -59,7 +59,7 @@ impl Svg {
     pub fn compose(&self) -> Scene {
         let mut scene = Scene::new();
         if let Some(ref r) = self.view_box {
-            scene.set_view_box(dbg!(r.as_rectf()));
+            scene.set_view_box(r.as_rectf());
         }
         let ctx = DrawContext {
             svg: self,
@@ -80,7 +80,6 @@ impl Svg {
     }
     pub fn parse<'a>(doc: &'a Document) -> Result<Svg, Error<'a>> {
         let root = doc.root_element();
-        dbg!(root.tag_name());
         assert!(root.has_tag_name("svg"));
         let view_box = root.attribute("viewBox").map(Rect::parse).transpose()?;
     

@@ -115,7 +115,7 @@ impl TagRadialGradient {
         }
 
         gradient.apply_transform(options.transform * self.gradient_transform);
-        dbg!(gradient)
+        gradient
     }
 }
 
