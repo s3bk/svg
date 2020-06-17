@@ -10,8 +10,6 @@ fn length2vec((x, y): (Length, Length)) -> Vector2F {
     vec(x.num, y.num)
 }
 
-use std::f32::consts::SQRT_2;
-const QUARTER_ARC_CP_FROM_OUTSIDE: f32 = (3.0 - 4.0 * (SQRT_2 - 1.0)) / 3.0;
 
 #[derive(Debug)]
 pub struct TagRect {
@@ -21,80 +19,26 @@ pub struct TagRect {
     attrs: Attrs,
 }
 impl TagRect {
-    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let options = options.apply(&self.attrs);
-
+    pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
         let size = length2vec(self.size);
-        if (size.x() == 0.) | (size.y() == 0.) {
-            return;
+        if (size.x() == 0.) | (size.y() == 0.) | (!self.attrs.display) {
+            return None;
         }
         let origin = length2vec(self.pos);
+        let options = options.apply(&self.attrs);
+        options.bounds(RectF::new(origin, size))
+    }
+
+    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+        let options = options.apply(&self.attrs);
+        let size = length2vec(self.size);
+        if (size.x() == 0.) | (size.y() == 0.) | (!self.attrs.display) {
+            return;
+        }
+
+        let origin = length2vec(self.pos);
         let radius = length2vec(self.radius);
-        let outer_rect = RectF::new(origin, size);
-
-        let contour = if radius.is_zero() {
-            Contour::from_rect(outer_rect)
-        } else {
-            let radius = radius.min(size * 0.5);
-            let contol_point_offset = radius * QUARTER_ARC_CP_FROM_OUTSIDE;
-
-            let mut contour = Contour::with_capacity(8);
-
-            // upper left corner
-            {
-                let p0 = outer_rect.origin();
-                let p1 = p0 + contol_point_offset;
-                let p2 = p0 + radius;
-                contour.push_endpoint(vec2f(p0.x(), p2.y()));
-                contour.push_cubic(
-                    vec2f(p0.x(), p1.y()),
-                    vec2f(p1.x(), p0.y()),
-                    vec2f(p2.x(), p0.y())
-                );
-            }
-
-            // upper right
-            {
-                let p0 = outer_rect.upper_right();
-                let p1 = p0 + contol_point_offset * vec2f(-1.0, 1.0);
-                let p2 = p0 + radius * vec2f(-1.0, 1.0);
-                contour.push_endpoint(vec2f(p2.x(), p0.y()));
-                contour.push_cubic(
-                    vec2f(p1.x(), p0.y()),
-                    vec2f(p0.x(), p1.y()),
-                    vec2f(p0.x(), p2.y())
-                );
-            }
-
-            // lower right
-            {
-                let p0 = outer_rect.lower_right();
-                let p1 = p0 + contol_point_offset * vec2f(-1.0, -1.0);
-                let p2 = p0 + radius * vec2f(-1.0, -1.0);
-                contour.push_endpoint(vec2f(p0.x(), p2.y()));
-                contour.push_cubic(
-                    vec2f(p0.x(), p1.y()),
-                    vec2f(p1.x(), p0.y()),
-                    vec2f(p2.x(), p0.y())
-                );
-            }
-
-            // lower left
-            {
-                let p0 = outer_rect.lower_left();
-                let p1 = p0 + contol_point_offset * vec2f(1.0, -1.0);
-                let p2 = p0 + radius * vec2f(1.0, -1.0);
-                contour.push_endpoint(vec2f(p2.x(), p0.y()));
-                contour.push_cubic(
-                    vec2f(p1.x(), p0.y()),
-                    vec2f(p0.x(), p1.y()),
-                    vec2f(p0.x(), p2.y())
-                );
-            }
-
-            contour.close();
-            contour
-        };
+        let contour = Contour::from_rect_rounded(RectF::new(origin, size), radius);
 
         let mut outline = Outline::with_capacity(1);
         outline.push_contour(contour);

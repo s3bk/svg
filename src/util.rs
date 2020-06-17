@@ -57,3 +57,33 @@ impl Rect {
 pub fn opacity(s: &str) -> Result<f32, Error> {
     s.parse().map(|v: f32| v.min(1.0).max(0.0)).map_err(|e| Error::InvalidAttributeValue(s))
 }
+
+fn pair<I: Iterator>(mut iter: I) -> Option<(I::Item, I::Item)> {
+    match (iter.next(), iter.next()) {
+        (Some(a), Some(b)) => Some((a, b)),
+        _ => None
+    }
+}
+
+pub fn style_list(s: &str) -> impl Iterator<Item=(&str, &str)> + '_ {
+    s.split(";").flat_map(|s| pair(s.splitn(2, ":"))).map(|(a, b)| (a.trim(), b.trim()))
+}
+
+pub fn merge<T: Clone>(a: &Option<T>, b: &Option<T>) -> Option<T> {
+    match (a, b) {
+        (&Some(ref a), _) => Some(a.clone()),
+        (&None, &Some(ref b)) => Some(b.clone()),
+        (&None, &None) => None
+    }
+}
+
+pub fn max_bounds(mut iter: impl Iterator<Item=RectF>) -> Option<RectF> {
+    if let Some(mut b) = iter.next() {
+        for r in iter {
+            b = b.union_rect(r);
+        }
+        Some(b)
+    } else {
+        None
+    }
+}

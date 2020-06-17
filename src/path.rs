@@ -17,12 +17,27 @@ fn reflect_on(last: Option<Vector2F>, point: Vector2F) -> Vector2F {
     }
 }
 
-#[inline]
-fn safe_sqrt(x: f32) -> f32 {
-    if x <= 0.0 {
-        0.0
-    } else {
-        x.sqrt()
+#[derive(Debug)]
+pub struct TagClipPath {
+    pub id: Option<String>,
+    pub outline: Outline,
+}
+impl TagClipPath {
+    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagClipPath, Error<'i>> {
+        let mut outline = Outline::new();
+        let id = node.attribute("id").map(From::from);
+        for elem in node.children().filter(|n| n.is_element()) {
+            match elem.tag_name().name() {
+                "path" => {
+                    let path = TagPath::parse(&elem)?;
+                    outline.merge(path.outline.transformed(&path.attrs.transform));
+                },
+                _ => {
+                    dbg!(elem);
+                }
+            }
+        }
+        Ok(dbg!(TagClipPath { id, outline }))
     }
 }
 
@@ -33,8 +48,17 @@ pub struct TagPath {
     debug: DebugInfo,
 }
 impl TagPath {
+    pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+        if self.attrs.display && self.outline.len() > 0 {
+            let options = options.apply(&self.attrs);
+            options.bounds(self.outline.bounds())
+        } else {
+            None
+        }
+    }
     pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
         let options = options.apply(&self.attrs);
+        println!("draw path {:?} {:?}", self.attrs, &options.clip_path);
         options.draw(scene, &self.outline);
 
         #[cfg(feature="debug")]
@@ -167,64 +191,13 @@ impl TagPath {
                         if !abs {
                             p = last + p;
                         }
-                        //dbg!(p);
-                        let x_axis_rotation = x_axis_rotation as f32 * (PI / 180.);
-                        if r.x().is_finite() & r.y().is_finite() {
-                            let r = r.abs();
-                            let r_inv = r.inv();
-                            let sign = if large_arc != sweep { 1.0 } else { -1.0 };
-                            let rot = Matrix2x2F::from_rotation(x_axis_rotation);
-                            //print_matrix(rot);
-                            let rot_ = rot.adjugate();
-                            // x'
-                            let q = rot_ * (last - p) * 0.5;
-                            let q2 = q * q;
 
-                            let gamma = q2 * r_inv * r_inv;
-                            let gamma = gamma.x() + gamma.y();
+                        let direction = match sweep {
+                            false => ArcDirection::CCW,
+                            true => ArcDirection::CW
+                        };
+                        contour.push_svg_arc(r, x_axis_rotation as f32 * (PI / 180.), large_arc, direction, p);
 
-                            let (a, b, c) = if gamma <= 1.0 {
-                                // normal case
-                                let r2 = r * r;
-
-                                let r2_prod = r2.x() * r2.y(); // r_x^2 r_y^2
-
-                                let rq2 = r2 * q2.yx(); // (r_x^2 q_y^2, r_y^2 q_x^2)
-                                let rq2_sum = rq2.x() + rq2.y(); // r_x^2 q_y^2 + r_y^2 q_x^2
-                                // c'
-                                let s = vec(1., -1.) * r * (q * r_inv).yx() * safe_sqrt((r2_prod - rq2_sum) / rq2_sum) * sign;
-                                //dbg!(s);
-                                //print_matrix(rot);
-                                let c = rot * s + (last + p) * 0.5;
-                                //dbg!(c);
-                                let a = (q - s) * r_inv;
-                                let b = -(q + s) * r_inv;
-                                (a, b, c)
-                            } else {
-                                let c = (last + p) * 0.5;
-                                let a = q * r_inv;
-                                let b = -a;
-                                (a, b, c)
-                            };
-                            
-                            debug.add_point(c, "c");
-                            debug.add_vector(c, a * 50., "a");
-                            debug.add_vector(c, b * 50., "b");
-
-                            let direction = match sweep {
-                                false => ArcDirection::CCW,
-                                true => ArcDirection::CW
-                            };
-                            
-                            let transform = Transform2F {
-                                matrix: rot,
-                                vector: c
-                            } * Transform2F::from_scale(r);
-                            let chord = LineSegment2F::new(a, b);
-                            contour.push_arc_from_unit_chord(&transform, chord, direction);
-                        } else {
-                            contour.push_endpoint(p);
-                        }
                         last = p;
                         last_quadratic_control_point = None;
                         last_cubic_control_point = None;

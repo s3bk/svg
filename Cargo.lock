@@ -1180,7 +1180,9 @@ name = "pathfinder_svg"
 version = "0.1.0"
 dependencies = [
  "font",
+ "itertools",
  "lazy_static",
+ "log",
  "pathfinder_color",
  "pathfinder_content",
  "pathfinder_geometry",

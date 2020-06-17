@@ -1,5 +1,6 @@
 #[cfg(feature="debug")]
 #[macro_use] extern crate lazy_static;
+#[macro_use] extern crate log;
 
 use roxmltree::{Document, Node, NodeType};
 use pathfinder_content::{
@@ -9,7 +10,7 @@ use pathfinder_content::{
     gradient::Gradient,
 };
 use pathfinder_renderer::{
-    scene::{Scene, DrawPath},
+    scene::{Scene, DrawPath, ClipPath, ClipPathId},
     paint::Paint as PaPaint,
 };
 use pathfinder_color::ColorU;
@@ -23,7 +24,7 @@ mod util;
 use util::*;
 
 mod path;
-use path::TagPath;
+use path::*;
 
 mod rect;
 use rect::TagRect;
@@ -39,6 +40,9 @@ use attrs::*;
 
 mod gradient;
 use gradient::{TagLinearGradient, TagRadialGradient};
+
+mod filter;
+use filter::*;
 
 #[cfg(feature="text")]
 mod text;
@@ -58,9 +62,6 @@ pub struct Svg {
 impl Svg {
     pub fn compose(&self) -> Scene {
         let mut scene = Scene::new();
-        if let Some(ref r) = self.view_box {
-            scene.set_view_box(r.as_rectf());
-        }
         let ctx = DrawContext {
             svg: self,
             dpi: 75.0,
@@ -70,7 +71,11 @@ impl Svg {
             #[cfg(feature="debug")]
             debug: false,
         };
-        self.compose_to(&mut scene, DrawOptions::new(&ctx));
+        let options = DrawOptions::new(&ctx);
+        if let Some(ref r) = self.view_box {
+            scene.set_view_box(options.transform * r.as_rectf());
+        }
+        self.compose_to(&mut scene, options);
         scene
     }
     pub fn compose_to(&self, scene: &mut Scene, options: DrawOptions) {
@@ -124,6 +129,8 @@ pub struct DrawOptions<'a> {
 
     transform: Transform2F,
 
+    clip_path: ClipPathAttr,
+    clip_rule: FillRule,
 }
 impl<'a> DrawOptions<'a> {
     pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {
@@ -139,17 +146,27 @@ impl<'a> DrawOptions<'a> {
                 line_cap: LineCap::Butt,
                 line_join: LineJoin::Bevel,
             },
-            transform: Transform2F::default(),
+            transform: Transform2F::from_scale(10.),
+            clip_path: ClipPathAttr::None,
+            clip_rule: FillRule::EvenOdd,
         }
     }
-    pub fn transform(mut self, transform: Transform2F) -> DrawOptions<'a> {
-        self.transform = transform;
-        self
-    }
-    #[cfg(feature="debug")]
-    pub fn debug(mut self) -> DrawOptions {
-        self.debug = true;
-        self
+    pub fn bounds(&self, rect: RectF) -> Option<RectF> {
+        let has_fill = matches!(*self,
+            DrawOptions { fill: Some(ref paint), fill_opacity, .. }
+            if !paint.is_none() && fill_opacity > 0.);
+        let has_stroke = matches!(*self,
+            DrawOptions { stroke: Some(ref paint), stroke_opacity, .. }
+            if !paint.is_none() && stroke_opacity > 0.
+        );
+
+        if has_stroke {
+            Some(self.transform * rect.dilate(self.stroke_style.line_width))
+        } else if has_fill {
+            Some(self.transform * rect)
+        } else {
+            None
+        }
     }
     fn resolve_paint(&self, paint: &Option<Paint>, opacity: f32) -> Option<PaPaint> {
         match *paint {
@@ -165,20 +182,49 @@ impl<'a> DrawOptions<'a> {
             _ => None
         }
     }
+    fn debug_outline(&self, scene: &mut Scene, path: &Outline, color: ColorU) {
+        dbg!(path);
+        let paint_id = scene.push_paint(&PaPaint::from_color(color));
+        scene.push_draw_path(DrawPath::new(path.clone(), paint_id));
+    }
+    fn clip_path_id(&self, scene: &mut Scene) -> Option<ClipPathId> {
+        if let ClipPathAttr::Ref(ref id) = self.clip_path {
+            if let Some(Item::ClipPath(TagClipPath { outline, .. })) = self.ctx.resolve(id).map(|t| &**t) {
+                let outline = outline.clone().transformed(&self.transform);
+                println!("clip path: {:?}", outline);
+                //self.debug_outline(scene, &outline, ColorU::new(0, 255, 0, 50));
+
+                let mut clip_path = ClipPath::new(outline);
+                clip_path.set_fill_rule(self.clip_rule);
+                return Some(scene.push_clip_path(clip_path));
+            } else {
+                println!("clip path missing: {}", id);
+            }
+        }
+        None
+    }
     fn draw(&self, scene: &mut Scene, path: &Outline) {
+        let clip_path_id = self.clip_path_id(scene);
+        
         if let Some(ref fill) = self.resolve_paint(&self.fill, self.fill_opacity) {
+            let outline = path.clone().transformed(&self.transform);
+            println!("draw {:?}", outline);
             let paint_id = scene.push_paint(fill);
-            let mut draw_path = DrawPath::new(path.clone().transformed(&self.transform), paint_id);
+            let mut draw_path = DrawPath::new(outline, paint_id);
             draw_path.set_fill_rule(self.fill_rule);
+            draw_path.set_clip_path(clip_path_id);
             scene.push_draw_path(draw_path);
         }
         if let Some(ref stroke) = self.resolve_paint(&self.stroke, self.stroke_opacity) {
-            let paint_id = scene.push_paint(stroke);
-            let mut stroke = OutlineStrokeToFill::new(path, self.stroke_style);
-            stroke.offset();
-            let path = stroke.into_outline();
-            let draw_path = DrawPath::new(path.transformed(&self.transform), paint_id);
-            scene.push_draw_path(draw_path);
+            if self.stroke_style.line_width > 0. {
+                let paint_id = scene.push_paint(stroke);
+                let mut stroke = OutlineStrokeToFill::new(path, self.stroke_style);
+                stroke.offset();
+                let path = stroke.into_outline();
+                let mut draw_path = DrawPath::new(path.transformed(&self.transform), paint_id);
+                draw_path.set_clip_path(clip_path_id);
+                scene.push_draw_path(draw_path);
+            }
         }
     }
     fn apply(&self, attrs: &Attrs) -> DrawOptions {
@@ -187,6 +233,8 @@ impl<'a> DrawOptions<'a> {
             stroke_style.line_width = length.num as f32;
         }
         DrawOptions {
+            clip_path: attrs.clip_path.clone().unwrap_or_else(|| self.clip_path.clone()),
+            clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
             transform: self.transform * attrs.transform,
             fill: merge(&attrs.fill, &self.fill),
             fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
@@ -221,13 +269,6 @@ impl<'a> DrawOptions<'a> {
     }
 }
 
-fn merge<T: Clone>(a: &Option<T>, b: &Option<T>) -> Option<T> {
-    match (a, b) {
-        (_, &Some(ref b)) => Some(b.clone()),
-        (&Some(ref a), &None) => Some(a.clone()),
-        (&None, &None) => None
-    }
-}
 
 #[derive(Debug)]
 pub enum Item {
@@ -238,6 +279,8 @@ pub enum Item {
     Polygon(TagPolygon),
     LinearGradient(TagLinearGradient),
     RadialGradient(TagRadialGradient),
+    ClipPath(TagClipPath),
+    Filter(TagFilter),
 }
 
 impl Item {
@@ -250,6 +293,15 @@ impl Item {
             _ => {}
         }
     }
+    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+        match *self {
+            Item::G(ref tag) => tag.bounds(&options),
+            Item::Path(ref tag) => tag.bounds(&options),
+            Item::Rect(ref tag) => tag.bounds(&options),
+            Item::Polygon(ref tag) => tag.bounds(&options),
+            _ => None
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -258,24 +310,74 @@ pub struct TagG {
     attrs: Attrs,
 }
 impl TagG {
-    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+    pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+        if !self.attrs.display {
+            return None;
+        }
+
         let options = options.apply(&self.attrs);
+        max_bounds(self.items.iter().flat_map(|item| item.bounds(&options)))
+    }
+    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+        if !self.attrs.display {
+            return;
+        }
+
+        dbg!(&self.attrs, options.transform);
+        let options = options.apply(&self.attrs);
+
+        if let Some(ref filter_id) = self.attrs.filter {
+            let bounds = match max_bounds(self.items.iter().flat_map(|item| dbg!(item.bounds(&options)))) {
+                Some(b) => b,
+                None => {
+                    println!("no bounds for {:?}", self);
+                    return;
+                }
+            };
+            match options.ctx.resolve(&filter_id).map(|i| &**i) {
+                Some(Item::Filter(filter)) => {
+                    filter.apply(scene, &options, bounds, |scene, options| {
+                        for item in &self.items {
+                            item.compose_to(scene, options);
+                        }
+                    });
+                    return;
+                },
+                r => println!("expected filter, got {:?}", r)
+            }
+        }
+
         for item in &self.items {
             item.compose_to(scene, &options);
         }
+    }
+    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagG, Error<'i>> {
+        let attrs = Attrs::parse(node)?;
+        let items = parse_node_list(node.children())?;
+        Ok(TagG { items, attrs })
     }
 }
 #[derive(Debug)]
 pub struct TagDefs {
     items: Vec<Arc<Item>>,
 }
+impl TagDefs {
+    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagDefs, Error<'i>> {
+        let items = parse_node_list(node.children())?;
+        Ok(TagDefs { items })
+    }
+}
 
 fn link(ids: &mut ItemCollection, item: &Arc<Item>) {
     match &**item {
         Item::G(g) => g.items.iter().for_each(|item| link(ids, item)),
         Item::Defs(defs) => defs.items.iter().for_each(|item| link(ids, item)),
-        Item::LinearGradient(TagLinearGradient { id: Some(id), .. }) => { ids.insert(id.clone(), item.clone()); }
-        Item::RadialGradient(TagRadialGradient { id: Some(id), .. }) => { ids.insert(id.clone(), item.clone()); }
+        Item::LinearGradient(TagLinearGradient { id: Some(id), .. }) |
+        Item::RadialGradient(TagRadialGradient { id: Some(id), .. }) |
+        Item::ClipPath(TagClipPath { id: Some(id), .. }) |
+        Item::Filter(TagFilter { id: Some(id), .. }) => {
+             ids.insert(id.clone(), item.clone());
+        }
         _ => {}
     }
 }
@@ -297,27 +399,22 @@ fn parse_node_list<'a, 'i: 'a>(nodes: impl Iterator<Item=Node<'a, 'i>>) -> Resul
 }
 
 fn parse_node<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Option<Item>, Error<'i>> {
+    println!("<{:?}:{} id={:?}, ...>", node.tag_name().namespace(), node.tag_name().name(), node.attribute("id"));
     Ok(match node.tag_name().name() {
-        "title" | "desc" => None,
-        "defs" => Some(Item::Defs(tag_defs(node)?)),
+        "title" | "desc" | "metadata" => None,
+        "defs" => Some(Item::Defs(TagDefs::parse(node)?)),
         "path" => Some(Item::Path(TagPath::parse(node)?)),
-        "g" => Some(Item::G(tag_g(node)?)),
+        "g" => Some(Item::G(TagG::parse(node)?)),
         "rect" => Some(Item::Rect(TagRect::parse(node)?)),
         "polygon" => Some(Item::Polygon(TagPolygon::parse(node)?)),
         "linearGradient" => Some(Item::LinearGradient(TagLinearGradient::parse(node)?)),
         "radialGradient" => Some(Item::RadialGradient(TagRadialGradient::parse(node)?)),
-        tag => return Err(Error::Unimplemented(tag))
+        "clipPath" => Some(Item::ClipPath(TagClipPath::parse(node)?)),
+        "filter" => Some(Item::Filter(TagFilter::parse(node)?)),
+        tag => {
+            println!("unimplemented: {}", tag);
+            None
+        }
     })
 }
 
-
-fn tag_g<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagG, Error<'i>> {
-    let attrs = Attrs::parse(node)?;
-    let items = parse_node_list(node.children())?;
-    Ok(TagG { items, attrs })
-}
-
-fn tag_defs<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagDefs, Error<'i>> {
-    let items = parse_node_list(node.children())?;
-    Ok(TagDefs { items })
-}

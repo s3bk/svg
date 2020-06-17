@@ -5,32 +5,35 @@ use svgtypes::PointsParser;
 
 #[derive(Debug)]
 pub struct TagPolygon {
-    points: Vec<Vector2F>,
+    outline: Outline,
     attrs: Attrs,
 }
 impl TagPolygon {
+    pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+        if self.attrs.display && self.outline.len() > 0 {
+            let options = options.apply(&self.attrs);
+            options.bounds(self.outline.bounds())
+        } else {
+            None
+        }
+    }
     pub fn parse<'a, 'i: 'a>(node: &Node<'a, 'i>) -> Result<TagPolygon, Error<'a>> {
-        let points = node.attribute("points").map(|v| {
-            PointsParser::from(v).map(|(x, y)| vec(x, y)).collect()
-        }).unwrap_or_default();
+        let mut contour = Contour::new();
+        if let Some(v) = node.attribute("points") {
+            for (x, y) in PointsParser::from(v) {
+                contour.push_endpoint(vec(x, y));
+            }
+        }
+
+        let mut outline = Outline::with_capacity(1);
+        outline.push_contour(contour);
+        
         let attrs = Attrs::parse(node)?;
-        Ok(TagPolygon { points, attrs })
+        Ok(TagPolygon { outline, attrs })
     }
 
     pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        if self.points.len() < 2 {
-            return;
-        }
-
         let options = options.apply(&self.attrs);
-        let mut contour = Contour::with_capacity(self.points.len());
-        for &point in &self.points {
-            contour.push_endpoint(point);
-        }
-        contour.close();
-        let mut outline = Outline::with_capacity(1);
-        outline.push_contour(contour);
-
-        options.draw(scene, &outline);
+        options.draw(scene, &self.outline);
     }
 }
