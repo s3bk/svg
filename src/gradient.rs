@@ -1,6 +1,6 @@
 use crate::prelude::*;
-use pathfinder_content::gradient::{Gradient, GradientGeometry, ColorStop};
-use pathfinder_color::{ColorU, ColorF};
+use pathfinder_content::gradient::{Gradient};
+use pathfinder_color::{ColorU};
 use pathfinder_geometry::line_segment::LineSegment2F;
 use pathfinder_simd::default::F32x2;
 use svgtypes::Color;

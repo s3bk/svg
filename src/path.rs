@@ -1,6 +1,5 @@
 use pathfinder_geometry::{
     transform2d::{Matrix2x2F},
-    line_segment::LineSegment2F,
 };
 use pathfinder_content::{
     outline::{Outline, ArcDirection, Contour},

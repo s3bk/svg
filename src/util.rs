@@ -3,7 +3,6 @@ use pathfinder_geometry::{
     transform2d::Transform2F,
     rect::RectF,
 };
-use pathfinder_color::ColorU;
 use svgtypes::{TransformListParser, TransformListToken, Length, LengthListParser};
 use crate::error::Error;
 use std::str::FromStr;

@@ -1,9 +1,6 @@
 use crate::prelude::*;
 
-use pathfinder_color::ColorU;
 use pathfinder_content::{
-    outline::{Outline, ArcDirection, Contour},
-    stroke::{OutlineStrokeToFill, StrokeStyle, LineCap, LineJoin},
     fill::{FillRule}
 };
 use svgtypes::{Length, Color};
