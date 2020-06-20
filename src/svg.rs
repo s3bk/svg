@@ -20,9 +20,6 @@ pub struct Svg {
 
 impl TagSvg {
     pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        if let Some(ref r) = self.view_box {
-            scene.set_view_box(options.transform * r.as_rectf());
-        }
         for item in &self.items {
             item.compose_to(scene, &options);
         }
@@ -50,6 +47,10 @@ impl Svg {
         let mut scene = Scene::new();
         let ctx = DrawContext::new(self);
         let options = DrawOptions::new(&ctx);
+
+        if let Item::Svg(TagSvg { view_box: Some(r), .. }) = &*self.root {
+            scene.set_view_box(options.transform * r.as_rectf());
+        }
         self.root.compose_to(&mut scene, &options);
         scene
     }
