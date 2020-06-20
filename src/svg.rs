@@ -54,6 +54,17 @@ impl Svg {
         self.root.compose_to(&mut scene, &options);
         scene
     }
+    
+    /// get the viewbox (computed if missing)
+    pub fn view_box(&self) -> Option<RectF> {
+        if let Item::Svg(TagSvg { view_box: Some(r), .. }) = &*self.root {
+            return Some(r.as_rectf());
+        } else {
+            let ctx = DrawContext::new(self);
+            let options = DrawOptions::new(&ctx);
+            self.root.bounds(&options)
+        }
+    }
     pub fn get_item(&self, id: &str) -> Option<&Arc<Item>> {
         self.named_items.get(id)
     }
