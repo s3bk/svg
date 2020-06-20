@@ -15,6 +15,7 @@ pub enum Error {
     ParseFloat(ParseFloatError),
     Utf8(Utf8Error),
     Gzip(IoError),
+    NotSvg,
 }
 impl From<XmlError> for Error {
     fn from(e: XmlError) -> Self {

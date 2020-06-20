@@ -38,9 +38,10 @@ mod filter;
 use filter::*;
 
 mod draw;
-use draw::*;
+pub use draw::{DrawContext, DrawOptions};
 
 mod svg;
+use svg::TagSvg;
 pub use svg::Svg;
 
 #[cfg(feature="text")]
@@ -63,20 +64,22 @@ pub enum Item {
     RadialGradient(TagRadialGradient),
     ClipPath(TagClipPath),
     Filter(TagFilter),
+    Svg(TagSvg),
 }
 
 impl Item {
-    fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
         match *self {
             Item::G(ref tag) => tag.compose_to(scene, &options),
             Item::Path(ref tag) => tag.compose_to(scene, &options),
             Item::Rect(ref tag) => tag.compose_to(scene, &options),
             Item::Polygon(ref tag) => tag.compose_to(scene, &options),
             Item::Ellipse(ref tag) => tag.compose_to(scene, &options),
+            Item::Svg(ref tag) => tag.compose_to(scene, &options),
             _ => {}
         }
     }
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
         match *self {
             Item::G(ref tag) => tag.bounds(&options),
             Item::Path(ref tag) => tag.bounds(&options),
@@ -162,7 +165,8 @@ fn link(ids: &mut ItemCollection, item: &Arc<Item>) {
         Item::Path(TagPath { id: Some(id ), .. }) |
         Item::Rect(TagRect { id: Some(id), .. }) |
         Item::Polygon(TagPolygon { id: Some(id), .. }) |
-        Item::Ellipse(TagEllipse { id: Some(id), .. })
+        Item::Ellipse(TagEllipse { id: Some(id), .. }) |
+        Item::Svg(TagSvg { id: Some(id), .. })
         => {
              ids.insert(id.clone(), item.clone());
         }
@@ -200,6 +204,7 @@ fn parse_node<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Option<Item>, Error> {
         "radialGradient" => Some(Item::RadialGradient(TagRadialGradient::parse(node)?)),
         "clipPath" => Some(Item::ClipPath(TagClipPath::parse(node)?)),
         "filter" => Some(Item::Filter(TagFilter::parse(node)?)),
+        "svg" => Some(Item::Svg(TagSvg::parse(node)?)),
         tag => {
             println!("unimplemented: {}", tag);
             None

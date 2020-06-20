@@ -193,12 +193,15 @@ impl TagPath {
                             p = last + p;
                         }
 
-                        let direction = match sweep {
-                            false => ArcDirection::CCW,
-                            true => ArcDirection::CW
-                        };
-                        contour.push_svg_arc(r, x_axis_rotation as f32 * (PI / 180.), large_arc, direction, p);
-
+                        if p == last {
+                            println!("arc over zero distance");
+                        } else {
+                            let direction = match sweep {
+                                false => ArcDirection::CCW,
+                                true => ArcDirection::CW
+                            };
+                            contour.push_svg_arc(r, x_axis_rotation as f32 * (PI / 180.), large_arc, direction, p);
+                        }
                         last = p;
                         last_quadratic_control_point = None;
                         last_cubic_control_point = None;

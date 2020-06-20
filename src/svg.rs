@@ -1,47 +1,37 @@
 use crate::prelude::*;
-use crate::{parse_node_list, link};
+use crate::{parse_node, parse_node_list, link};
 use libflate::gzip::Decoder;
 
 use std::sync::Arc;
 use roxmltree::{Document};
 
 #[derive(Debug)]
-pub struct Svg {
+pub struct TagSvg {
+    pub id: Option<String>,
     items: Vec<Arc<Item>>,
     view_box: Option<Rect>,
-    pub named_items: ItemCollection,
 }
-impl Svg {
-    pub fn compose(&self) -> Scene {
-        let mut scene = Scene::new();
-        let ctx = DrawContext::new(self);
-        let options = DrawOptions::new(&ctx);
+
+#[derive(Debug)]
+pub struct Svg {
+    pub named_items: ItemCollection,
+    root: Arc<Item>,
+}
+
+impl TagSvg {
+    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
         if let Some(ref r) = self.view_box {
             scene.set_view_box(options.transform * r.as_rectf());
         }
-        self.compose_to(&mut scene, options);
-        scene
-    }
-    pub fn compose_to(&self, scene: &mut Scene, options: DrawOptions) {
         for item in &self.items {
             item.compose_to(scene, &options);
         }
     }
-    pub fn compose_node(&self, id: &str) -> Option<Scene> {
-        self.named_items.get(id).map(|item| {
-            let mut scene = Scene::new();
-            let ctx = DrawContext::new(self);
-            let options = DrawOptions::new(&ctx);
-            item.compose_to(&mut scene, &options);
-            scene
-        })
-    }
-    pub fn parse<'a>(doc: &'a Document) -> Result<Svg, Error> {
-        let root = doc.root_element();
-        assert!(root.has_tag_name("svg"));
-        let view_box = root.attribute("viewBox").map(Rect::parse).transpose()?;
-        let width = root.attribute("width").map(length).transpose()?;
-        let height = root.attribute("height").map(length).transpose()?;
+    pub fn parse(node: &Node) -> Result<TagSvg, Error> {
+        let view_box = node.attribute("viewBox").map(Rect::parse).transpose()?;
+        let width = node.attribute("width").map(length).transpose()?;
+        let height = node.attribute("height").map(length).transpose()?;
+        let id = node.attribute("id").map(|s| s.into());
     
         let view_box = match (view_box, width, height) {
             (Some(r), _, _) => Some(r),
@@ -49,21 +39,38 @@ impl Svg {
             _ => None
         };
 
-        let items = parse_node_list(root.children())?;
+        let items = parse_node_list(node.children())?;
     
-        let mut named_items = ItemCollection::new();
-        for item in &items {
-            link(&mut named_items, item);
-        }
-    
-        Ok(Svg { items, view_box, named_items })
+        Ok(TagSvg { items, view_box, id })
+    }
+}
+
+impl Svg {
+    pub fn compose(&self) -> Scene {
+        let mut scene = Scene::new();
+        let ctx = DrawContext::new(self);
+        let options = DrawOptions::new(&ctx);
+        self.root.compose_to(&mut scene, &options);
+        scene
+    }
+    pub fn get_item(&self, id: &str) -> Option<&Arc<Item>> {
+        self.named_items.get(id)
     }
     pub fn from_str(text: &str) -> Result<Svg, Error> {
         timed!("parse xml", {
             let doc = Document::parse(text)?;
         });
         timed!("build svg", {
-            Svg::parse(&doc)
+            let root = parse_node(&doc.root_element());
+        });
+        let root_item = Arc::new(root?.ok_or(Error::NotSvg)?);
+
+        let mut named_items = ItemCollection::new();
+        link(&mut named_items, &root_item);
+
+        Ok(Svg {
+            root: root_item,
+            named_items,
         })
     }
     pub fn from_data(data: &[u8]) -> Result<Svg, Error> {
