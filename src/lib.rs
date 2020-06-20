@@ -67,15 +67,7 @@ pub struct Svg {
 impl Svg {
     pub fn compose(&self) -> Scene {
         let mut scene = Scene::new();
-        let ctx = DrawContext {
-            svg: self,
-            dpi: 75.0,
-
-            #[cfg(feature="debug")]
-            debug_font: Arc::new(FontCollection::debug()),
-            #[cfg(feature="debug")]
-            debug: false,
-        };
+        let ctx = DrawContext::new(self);
         let options = DrawOptions::new(&ctx);
         if let Some(ref r) = self.view_box {
             scene.set_view_box(options.transform * r.as_rectf());
@@ -87,6 +79,15 @@ impl Svg {
         for item in &self.items {
             item.compose_to(scene, &options);
         }
+    }
+    pub fn compose_node(&self, id: &str) -> Option<Scene> {
+        self.named_items.get(id).map(|item| {
+            let mut scene = Scene::new();
+            let ctx = DrawContext::new(self);
+            let options = DrawOptions::new(&ctx);
+            item.compose_to(&mut scene, &options);
+            scene
+        })
     }
     pub fn parse<'a>(doc: &'a Document) -> Result<Svg, Error> {
         let root = doc.root_element();

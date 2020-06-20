@@ -24,6 +24,17 @@ pub struct DrawContext<'a> {
     pub dpi: f32,
 }
 impl<'a> DrawContext<'a> {
+    pub fn new(svg: &'a Svg) -> Self {
+        DrawContext {
+            svg,
+            dpi: 75.0,
+
+            #[cfg(feature="debug")]
+            debug_font: Arc::new(FontCollection::debug()),
+            #[cfg(feature="debug")]
+            debug: false,
+        }
+    }
     pub fn resolve(&self, id: &str) -> Option<&Arc<Item>> {
         self.svg.named_items.get(id)
     }
