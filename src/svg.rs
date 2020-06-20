@@ -7,8 +7,8 @@ use roxmltree::{Document};
 
 #[derive(Debug)]
 pub struct TagSvg {
-    pub id: Option<String>,
-    items: Vec<Arc<Item>>,
+    pub (crate) id: Option<String>,
+    pub (crate) items: Vec<Arc<Item>>,
     view_box: Option<Rect>,
 }
 
@@ -44,9 +44,14 @@ impl TagSvg {
 
 impl Svg {
     pub fn compose(&self) -> Scene {
+        self.compose_with_transform(Transform2F::default())
+    }
+
+    pub fn compose_with_transform(&self, transform: Transform2F) -> Scene {
         let mut scene = Scene::new();
         let ctx = DrawContext::new(self);
-        let options = DrawOptions::new(&ctx);
+        let mut options = DrawOptions::new(&ctx);
+        options.transform = transform;
 
         if let Item::Svg(TagSvg { view_box: Some(r), .. }) = &*self.root {
             scene.set_view_box(options.transform * r.as_rectf());
@@ -54,7 +59,7 @@ impl Svg {
         self.root.compose_to(&mut scene, &options);
         scene
     }
-    
+
     /// get the viewbox (computed if missing)
     pub fn view_box(&self) -> Option<RectF> {
         if let Item::Svg(TagSvg { view_box: Some(r), .. }) = &*self.root {

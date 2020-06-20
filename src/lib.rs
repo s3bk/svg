@@ -95,6 +95,7 @@ impl Item {
 pub struct TagG {
     items: Vec<Arc<Item>>,
     attrs: Attrs,
+    pub id: Option<String>,
 }
 impl TagG {
     pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
@@ -140,7 +141,8 @@ impl TagG {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagG, Error> {
         let attrs = Attrs::parse(node)?;
         let items = parse_node_list(node.children())?;
-        Ok(TagG { items, attrs })
+        let id = node.attribute("id").map(|s| s.into());
+        Ok(TagG { items, attrs, id })
     }
 }
 #[derive(Debug)]
@@ -156,7 +158,13 @@ impl TagDefs {
 
 fn link(ids: &mut ItemCollection, item: &Arc<Item>) {
     match &**item {
-        Item::G(g) => g.items.iter().for_each(|item| link(ids, item)),
+        Item::G(TagG { id, ref items, .. }) | 
+        Item::Svg(TagSvg { id, ref items, .. }) => {
+            if let Some(id) = id {
+                ids.insert(id.clone(), item.clone());
+            }
+            items.iter().for_each(|item| link(ids, item));
+        }
         Item::Defs(defs) => defs.items.iter().for_each(|item| link(ids, item)),
         Item::LinearGradient(TagLinearGradient { id: Some(id), .. }) |
         Item::RadialGradient(TagRadialGradient { id: Some(id), .. }) |
