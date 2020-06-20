@@ -6,6 +6,26 @@ use pathfinder_geometry::{
 use pathfinder_color::ColorU;
 use svgtypes::{TransformListParser, TransformListToken, Length, LengthListParser};
 use crate::error::Error;
+use std::str::FromStr;
+
+#[cfg(feature="profile")]
+#[macro_export]
+macro_rules! timed {
+    ($label:expr, { $($t:tt)* }) => (
+        let t0 = ::std::time::Instant::now();
+        let r = $($t)*;
+        info!("{}: {:?}", $label, t0.elapsed());
+        r
+    )
+}
+
+#[cfg(not(feature="profile"))]
+#[macro_export]
+macro_rules! timed {
+    ($label:expr, { $($t:tt)* }) => (
+        $($t)*
+    )
+}
 
 #[inline]
 pub fn vec(x: f64, y: f64) -> Vector2F {
@@ -35,6 +55,13 @@ pub struct Rect {
     size: (Length, Length)
 }
 impl Rect {
+    pub fn from_size(width: Length, height: Length) -> Rect {
+        Rect {
+            origin: (Length::zero(), Length::zero()),
+            size: (width, height)
+        }
+    }
+
     pub fn as_rectf(&self) -> RectF {
         let (x, y) = self.origin;
         let (w, h) = self.size;
@@ -54,8 +81,16 @@ impl Rect {
     }
 }
 
+pub fn inherit<T>(f: impl Fn(&str) -> Result<T, Error>) -> impl Fn(&str) -> Result<Option<T>, Error> {
+    move |s | match s {
+        "inherit" => Ok(None),
+        _ => Ok(Some(f(s)?))
+    }
+}
+
 pub fn opacity(s: &str) -> Result<f32, Error> {
-    s.parse().map(|v: f32| v.min(1.0).max(0.0)).map_err(|e| Error::InvalidAttributeValue(s))
+    let val: f32 = s.parse().map_err(|e| Error::InvalidAttributeValue(s.into()))?;
+    Ok(val.min(1.0).max(0.0))
 }
 
 fn pair<I: Iterator>(mut iter: I) -> Option<(I::Item, I::Item)> {
@@ -86,4 +121,8 @@ pub fn max_bounds(mut iter: impl Iterator<Item=RectF>) -> Option<RectF> {
     } else {
         None
     }
+}
+
+pub fn length(s: &str) -> Result<Length, Error> {
+    Ok(Length::from_str(s)?)
 }

@@ -1,29 +1,38 @@
 use roxmltree::{Error as XmlError};
 use svgtypes::Error as SvgError;
 use std::num::ParseFloatError;
+use std::str::Utf8Error;
+use std::io::Error as IoError;
 
 #[derive(Debug)]
-pub enum Error<'a> {
+pub enum Error {
     Xml(XmlError),
     Svg(SvgError),
     TooShort,
-    Unimplemented(&'a str),
-    InvalidAttributeValue(&'a str),
-    MissingAttribute(&'static str),
+    Unimplemented(String),
+    InvalidAttributeValue(String),
+    MissingAttribute(String),
     ParseFloat(ParseFloatError),
+    Utf8(Utf8Error),
+    Gzip(IoError),
 }
-impl<'a> From<XmlError> for Error<'a> {
+impl From<XmlError> for Error {
     fn from(e: XmlError) -> Self {
         Error::Xml(e)
     }
 }
-impl<'a> From<SvgError> for Error<'a> {
+impl From<SvgError> for Error {
     fn from(e: SvgError) -> Self {
         Error::Svg(e)
     }
 }
-impl<'a> From<ParseFloatError> for Error<'a> {
+impl From<ParseFloatError> for Error {
     fn from(e: ParseFloatError) -> Self {
         Error::ParseFloat(e)
+    }
+}
+impl From<Utf8Error> for Error {
+    fn from(e: Utf8Error) -> Self {
+        Error::Utf8(e)
     }
 }

@@ -45,7 +45,7 @@ impl TagRect {
 
         options.draw(scene, &outline);
     }
-    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagRect, Error<'i>> {
+    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagRect, Error> {
         let x = node.attribute("x").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
         let y = node.attribute("y").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
         let width = node.attribute("width").map(Length::from_str).transpose()?.unwrap_or(Length::zero());

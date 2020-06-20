@@ -14,13 +14,13 @@ use pathfinder_renderer::{
     paint::Paint as PaPaint,
 };
 use pathfinder_color::ColorU;
-
+use libflate::gzip::Decoder;
 use svgtypes::{Length, LengthListParser, Color};
 use std::sync::Arc;
 
 mod prelude;
 
-mod util;
+#[macro_use] mod util;
 use util::*;
 
 mod path;
@@ -44,6 +44,9 @@ use gradient::{TagLinearGradient, TagRadialGradient};
 mod filter;
 use filter::*;
 
+mod draw;
+use draw::*;
+
 #[cfg(feature="text")]
 mod text;
 
@@ -51,7 +54,6 @@ mod text;
 use text::*;
 
 use prelude::*;
-
 
 #[derive(Debug)]
 pub struct Svg {
@@ -83,11 +85,19 @@ impl Svg {
             item.compose_to(scene, &options);
         }
     }
-    pub fn parse<'a>(doc: &'a Document) -> Result<Svg, Error<'a>> {
+    pub fn parse<'a>(doc: &'a Document) -> Result<Svg, Error> {
         let root = doc.root_element();
         assert!(root.has_tag_name("svg"));
         let view_box = root.attribute("viewBox").map(Rect::parse).transpose()?;
+        let width = root.attribute("width").map(length).transpose()?;
+        let height = root.attribute("height").map(length).transpose()?;
     
+        let view_box = match (view_box, width, height) {
+            (Some(r), _, _) => Some(r),
+            (None, Some(w), Some(h)) => Some(Rect::from_size(w, h)),
+            _ => None
+        };
+
         let items = parse_node_list(root.children())?;
     
         let mut named_items = ItemCollection::new();
@@ -97,179 +107,30 @@ impl Svg {
     
         Ok(Svg { items, view_box, named_items })
     }
-}
-
-pub struct DrawContext<'a> {
-    svg: &'a Svg,
-
-    #[cfg(feature="debug")]
-    debug_font: Arc<FontCollection>,
-    #[cfg(feature="debug")]
-    debug: bool,
-
-    dpi: f32,
-}
-impl<'a> DrawContext<'a> {
-    pub fn resolve(&self, id: &str) -> Option<&Arc<Item>> {
-        self.svg.named_items.get(id)
+    pub fn from_str(text: &str) -> Result<Svg, Error> {
+        timed!("parse xml", {
+            let doc = Document::parse(text)?;
+        });
+        timed!("build svg", {
+            Svg::parse(&doc)
+        })
     }
-}
-
-#[derive(Clone)]
-pub struct DrawOptions<'a> {
-    ctx: &'a DrawContext<'a>,
-
-    fill: Option<Paint>,
-    fill_rule: FillRule,
-    fill_opacity: f32,
-
-    stroke: Option<Paint>,
-    stroke_style: StrokeStyle,
-    stroke_opacity: f32,
-
-    transform: Transform2F,
-
-    clip_path: ClipPathAttr,
-    clip_rule: FillRule,
-}
-impl<'a> DrawOptions<'a> {
-    pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {
-        DrawOptions {
-            ctx,
-            fill: None,
-            fill_rule: FillRule::EvenOdd,
-            fill_opacity: 1.0,
-            stroke: None,
-            stroke_opacity: 1.0,
-            stroke_style: StrokeStyle {
-                line_width: 1.0,
-                line_cap: LineCap::Butt,
-                line_join: LineJoin::Bevel,
-            },
-            transform: Transform2F::from_scale(10.),
-            clip_path: ClipPathAttr::None,
-            clip_rule: FillRule::EvenOdd,
-        }
-    }
-    pub fn bounds(&self, rect: RectF) -> Option<RectF> {
-        let has_fill = matches!(*self,
-            DrawOptions { fill: Some(ref paint), fill_opacity, .. }
-            if !paint.is_none() && fill_opacity > 0.);
-        let has_stroke = matches!(*self,
-            DrawOptions { stroke: Some(ref paint), stroke_opacity, .. }
-            if !paint.is_none() && stroke_opacity > 0.
-        );
-
-        if has_stroke {
-            Some(self.transform * rect.dilate(self.stroke_style.line_width))
-        } else if has_fill {
-            Some(self.transform * rect)
+    pub fn from_data(data: &[u8]) -> Result<Svg, Error> {
+        if data.starts_with(&[0x1f, 0x8b]) {
+            timed!("inflate", {
+                use std::io::Read;
+                let mut decoder = Decoder::new(data).map_err(Error::Gzip)?;
+                let mut decoded_data = Vec::new();
+                decoder.read_to_end(&mut decoded_data).map_err(Error::Gzip)?;
+            });
+            let text = std::str::from_utf8(&decoded_data)?;
+            Self::from_str(text)
         } else {
-            None
+            let text = std::str::from_utf8(data)?;
+            Self::from_str(text)
         }
-    }
-    fn resolve_paint(&self, paint: &Option<Paint>, opacity: f32) -> Option<PaPaint> {
-        match *paint {
-            Some(Paint::Color(Color { red, green, blue })) => Some(PaPaint::from_color(ColorU::new(red, green, blue, (255. * opacity) as u8))),
-            Some(Paint::Ref(ref id)) => match self.ctx.svg.named_items.get(id).map(|arc| &**arc) {
-                Some(Item::LinearGradient(ref gradient)) => Some(PaPaint::from_gradient(gradient.build(self, opacity))),
-                Some(Item::RadialGradient(ref gradient)) => Some(PaPaint::from_gradient(gradient.build(self, opacity))),
-                r => {
-                    dbg!(id, r);
-                    None
-                }
-            }
-            _ => None
-        }
-    }
-    fn debug_outline(&self, scene: &mut Scene, path: &Outline, color: ColorU) {
-        dbg!(path);
-        let paint_id = scene.push_paint(&PaPaint::from_color(color));
-        scene.push_draw_path(DrawPath::new(path.clone(), paint_id));
-    }
-    fn clip_path_id(&self, scene: &mut Scene) -> Option<ClipPathId> {
-        if let ClipPathAttr::Ref(ref id) = self.clip_path {
-            if let Some(Item::ClipPath(TagClipPath { outline, .. })) = self.ctx.resolve(id).map(|t| &**t) {
-                let outline = outline.clone().transformed(&self.transform);
-                println!("clip path: {:?}", outline);
-                //self.debug_outline(scene, &outline, ColorU::new(0, 255, 0, 50));
-
-                let mut clip_path = ClipPath::new(outline);
-                clip_path.set_fill_rule(self.clip_rule);
-                return Some(scene.push_clip_path(clip_path));
-            } else {
-                println!("clip path missing: {}", id);
-            }
-        }
-        None
-    }
-    fn draw(&self, scene: &mut Scene, path: &Outline) {
-        let clip_path_id = self.clip_path_id(scene);
-        
-        if let Some(ref fill) = self.resolve_paint(&self.fill, self.fill_opacity) {
-            let outline = path.clone().transformed(&self.transform);
-            println!("draw {:?}", outline);
-            let paint_id = scene.push_paint(fill);
-            let mut draw_path = DrawPath::new(outline, paint_id);
-            draw_path.set_fill_rule(self.fill_rule);
-            draw_path.set_clip_path(clip_path_id);
-            scene.push_draw_path(draw_path);
-        }
-        if let Some(ref stroke) = self.resolve_paint(&self.stroke, self.stroke_opacity) {
-            if self.stroke_style.line_width > 0. {
-                let paint_id = scene.push_paint(stroke);
-                let mut stroke = OutlineStrokeToFill::new(path, self.stroke_style);
-                stroke.offset();
-                let path = stroke.into_outline();
-                let mut draw_path = DrawPath::new(path.transformed(&self.transform), paint_id);
-                draw_path.set_clip_path(clip_path_id);
-                scene.push_draw_path(draw_path);
-            }
-        }
-    }
-    fn apply(&self, attrs: &Attrs) -> DrawOptions {
-        let mut stroke_style = self.stroke_style;
-        if let Some(length) = attrs.stroke_width {
-            stroke_style.line_width = length.num as f32;
-        }
-        DrawOptions {
-            clip_path: attrs.clip_path.clone().unwrap_or_else(|| self.clip_path.clone()),
-            clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
-            transform: self.transform * attrs.transform,
-            fill: merge(&attrs.fill, &self.fill),
-            fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
-            fill_opacity: attrs.fill_opacity.unwrap_or(self.fill_opacity),
-            stroke: merge(&attrs.stroke, &self.stroke),
-            stroke_style,
-            stroke_opacity: attrs.stroke_opacity.unwrap_or(self.stroke_opacity),
-            #[cfg(feature="debug")]
-            debug_font: self.debug_font.clone(),
-            .. *self
-        }
-    }
-    fn resolve_length(&self, length: Length) -> f32 {
-        let scale = match length.unit {
-            LengthUnit::None => 1.0,
-            LengthUnit::Cm => self.ctx.dpi * (1.0 / 2.54),
-            LengthUnit::Em => unimplemented!(),
-            LengthUnit::Ex => unimplemented!(),
-            LengthUnit::In => self.ctx.dpi,
-            LengthUnit::Mm => self.ctx.dpi * (1.0 / 25.4),
-            LengthUnit::Pc => unimplemented!(),
-            LengthUnit::Percent => unimplemented!(),
-            LengthUnit::Pt => self.ctx.dpi * (1.0 / 75.),
-            LengthUnit::Px => 1.0
-        };
-        length.num as f32 * scale
-    }
-    fn resolve_point(&self, (x, y): (Length, Length)) -> Vector2F {
-        let x = self.resolve_length(x);
-        let y = self.resolve_length(y);
-        vec2f(x, y)
     }
 }
-
-
 #[derive(Debug)]
 pub enum Item {
     Path(TagPath),
@@ -323,11 +184,10 @@ impl TagG {
             return;
         }
 
-        dbg!(&self.attrs, options.transform);
         let options = options.apply(&self.attrs);
 
         if let Some(ref filter_id) = self.attrs.filter {
-            let bounds = match max_bounds(self.items.iter().flat_map(|item| dbg!(item.bounds(&options)))) {
+            let bounds = match max_bounds(self.items.iter().flat_map(|item| item.bounds(&options))) {
                 Some(b) => b,
                 None => {
                     println!("no bounds for {:?}", self);
@@ -351,7 +211,7 @@ impl TagG {
             item.compose_to(scene, &options);
         }
     }
-    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagG, Error<'i>> {
+    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagG, Error> {
         let attrs = Attrs::parse(node)?;
         let items = parse_node_list(node.children())?;
         Ok(TagG { items, attrs })
@@ -362,7 +222,7 @@ pub struct TagDefs {
     items: Vec<Arc<Item>>,
 }
 impl TagDefs {
-    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagDefs, Error<'i>> {
+    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagDefs, Error> {
         let items = parse_node_list(node.children())?;
         Ok(TagDefs { items })
     }
@@ -383,7 +243,7 @@ fn link(ids: &mut ItemCollection, item: &Arc<Item>) {
 }
 
 
-fn parse_node_list<'a, 'i: 'a>(nodes: impl Iterator<Item=Node<'a, 'i>>) -> Result<Vec<Arc<Item>>, Error<'a>> {
+fn parse_node_list<'a, 'i: 'a>(nodes: impl Iterator<Item=Node<'a, 'i>>) -> Result<Vec<Arc<Item>>, Error> {
     let mut items = Vec::new();
     for node in nodes {
         match node.node_type() {
@@ -398,7 +258,7 @@ fn parse_node_list<'a, 'i: 'a>(nodes: impl Iterator<Item=Node<'a, 'i>>) -> Resul
     Ok(items)
 }
 
-fn parse_node<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Option<Item>, Error<'i>> {
+fn parse_node<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Option<Item>, Error> {
     println!("<{:?}:{} id={:?}, ...>", node.tag_name().namespace(), node.tag_name().name(), node.attribute("id"));
     Ok(match node.tag_name().name() {
         "title" | "desc" | "metadata" => None,

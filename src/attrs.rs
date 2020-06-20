@@ -13,6 +13,7 @@ pub struct Attrs {
     pub clip_path: Option<ClipPathAttr>,
     pub clip_rule: Option<FillRule>,
     pub transform: Transform2F,
+    pub opacity: Option<f32>,
     pub fill: Option<Paint>,
     pub fill_rule: Option<FillRule>,
     pub fill_opacity: Option<f32>,
@@ -28,6 +29,7 @@ impl Default for Attrs {
             clip_path: Some(ClipPathAttr::None),
             clip_rule: Some(FillRule::Winding),
             transform: Transform2F::default(),
+            opacity: Some(1.0),
             fill: None,
             fill_rule: Some(FillRule::Winding),
             fill_opacity: Some(1.0),
@@ -59,7 +61,7 @@ impl Paint {
             SvgPaint::FuncIRI(s, _)  => Paint::Ref(s.to_owned()),
             p => {
                 dbg!(p);
-                return Err(Error::InvalidAttributeValue(s));
+                return Err(Error::InvalidAttributeValue(s.into()));
             }
         })
     }
@@ -69,7 +71,7 @@ impl Paint {
 }
 
 impl Attrs {
-    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Attrs, Error<'i>> {
+    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Attrs, Error> {
         let mut attrs = Attrs::default();
         for attr in node.attributes() {
             attrs.parse_entry(attr.name(), attr.value())?;
@@ -78,10 +80,11 @@ impl Attrs {
         Ok(attrs)
     }
 
-    fn parse_entry<'a>(&mut self, key: &'a str, val: &'a str) -> Result<(), Error<'a>> {
+    fn parse_entry<'a>(&mut self, key: &'a str, val: &'a str) -> Result<(), Error> {
         match key {
             "clip-path" => self.clip_path = ClipPathAttr::parse(val)?,
             "clip-rule" => self.clip_rule = fill_rule(val)?,
+            "opacity" => self.opacity = (inherit(opacity))(val)?,
             "fill" => self.fill = Some(Paint::parse(val)?),
             "fill-opacity" => self.fill_opacity = Some(opacity(val)?),
             "fill-rule" => self.fill_rule = fill_rule(val)?,
@@ -114,7 +117,7 @@ fn fill_rule(s: &str) -> Result<Option<FillRule>, Error> {
         "nonzero" => Some(FillRule::Winding),
         "evenodd" => Some(FillRule::EvenOdd),
         "inherit" => None,
-        val => return Err(Error::InvalidAttributeValue(val))
+        val => return Err(Error::InvalidAttributeValue(val.into()))
     })
 }
 
@@ -122,7 +125,7 @@ fn display(s: &str) -> Result<bool, Error> {
     match s {
         "none" => Ok(false),
         "inline" => Ok(true),
-        val => Err(Error::InvalidAttributeValue(val))
+        val => Err(Error::InvalidAttributeValue(val.into()))
     }
 }
 
@@ -145,6 +148,6 @@ fn iri(s: &str) -> Result<String, Error> {
     if s.starts_with("url(#") && s.ends_with(")") {
         Ok(s[5 .. s.len() - 1].to_owned())
     } else {
-        Err(Error::InvalidAttributeValue(s))
+        Err(Error::InvalidAttributeValue(s.into()))
     }
 }

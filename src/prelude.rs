@@ -5,7 +5,14 @@ pub use pathfinder_geometry::{
     transform2d::Transform2F,
     rect::RectF,
 };
-pub use crate::{error::Error, Item, debug::DebugInfo, attrs::Attrs, DrawOptions, util::*, DrawContext};
+pub use crate::{
+    error::Error,
+    Item,
+    debug::DebugInfo, 
+    attrs::Attrs,
+    draw::{DrawOptions, DrawContext},
+    util::*,
+};
 pub use roxmltree::Node;
 pub use svgtypes::{Length, LengthUnit};
 pub use std::str::FromStr;

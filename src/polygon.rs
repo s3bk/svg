@@ -17,7 +17,7 @@ impl TagPolygon {
             None
         }
     }
-    pub fn parse<'a, 'i: 'a>(node: &Node<'a, 'i>) -> Result<TagPolygon, Error<'a>> {
+    pub fn parse<'a, 'i: 'a>(node: &Node<'a, 'i>) -> Result<TagPolygon, Error> {
         let mut contour = Contour::new();
         if let Some(v) = node.attribute("points") {
             for (x, y) in PointsParser::from(v) {

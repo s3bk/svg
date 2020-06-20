@@ -695,6 +695,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9457b06509d27052635f90d6466700c65095fdf75409b3fbdd903e988b886f49"
 
 [[package]]
+name = "libflate"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "784f4ec5908a9d7f4e53658906386667e8b02e9389a47cfebf45d324ba9e8d25"
+dependencies = [
+ "adler32",
+ "crc32fast",
+ "libflate_lz77",
+ "rle-decode-fast",
+]
+
+[[package]]
+name = "libflate_lz77"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3286f09f7d4926fc486334f28d8d2e6ebe4f7f9994494b6dab27ddfad2c9b11b"
+
+[[package]]
 name = "libloading"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1182,6 +1200,7 @@ dependencies = [
  "font",
  "itertools",
  "lazy_static",
+ "libflate",
  "log",
  "pathfinder_color",
  "pathfinder_content",
@@ -1211,7 +1230,6 @@ dependencies = [
 [[package]]
 name = "pathfinder_view"
 version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder_view/#3b2196c94efdfa0df1bf3174d7a280f4d581ce10"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -1403,6 +1421,12 @@ name = "redox_syscall"
 version = "0.1.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2439c63f3f6139d1b57529d16bc3b8bb855230c8efcc5d3a896c8bea7c3b1e84"
+
+[[package]]
+name = "rle-decode-fast"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cabe4fa914dec5870285fa7f71f602645da47c486e68486d2b4ceb4a343e90ac"
 
 [[package]]
 name = "roxmltree"

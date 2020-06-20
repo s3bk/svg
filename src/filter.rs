@@ -27,7 +27,7 @@ impl TagFilter {
             f(scene, options);
         }
     }
-    pub fn parse<'a, 'i: 'a>(node: &Node<'a, 'i>) -> Result<TagFilter, Error<'a>> {
+    pub fn parse<'a, 'i: 'a>(node: &Node<'a, 'i>) -> Result<TagFilter, Error> {
         let mut filters = Vec::with_capacity(1);
         for elem in node.children().filter(|n| n.is_element()) {
             let filter = match elem.tag_name().name() {
@@ -79,7 +79,7 @@ struct GaussianBlurInfo {
     render_target_id_x: RenderTargetId,
 }
 impl FeGaussianBlur {
-    fn parse<'a, 'i: 'a>(node: &Node<'a, 'i>) -> Result<FeGaussianBlur, Error<'a>> {
+    fn parse<'a, 'i: 'a>(node: &Node<'a, 'i>) -> Result<FeGaussianBlur, Error> {
         let std_deviation = node.attribute("stdDeviation").map(f32::from_str).transpose()?.unwrap_or_default();
         Ok(FeGaussianBlur { std_deviation })
     }
@@ -110,8 +110,6 @@ impl FeGaussianBlur {
             sigma,
             bounds
         } = info;
-
-        dbg!(sigma);
 
         let mut paint_x = Pattern::from_render_target(render_target_id_x, bounds.size());
         let mut paint_y = Pattern::from_render_target(render_target_id_y, bounds.size());

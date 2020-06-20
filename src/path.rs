@@ -23,7 +23,7 @@ pub struct TagClipPath {
     pub outline: Outline,
 }
 impl TagClipPath {
-    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagClipPath, Error<'i>> {
+    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagClipPath, Error> {
         let mut outline = Outline::new();
         let id = node.attribute("id").map(From::from);
         for elem in node.children().filter(|n| n.is_element()) {
@@ -37,7 +37,7 @@ impl TagClipPath {
                 }
             }
         }
-        Ok(dbg!(TagClipPath { id, outline }))
+        Ok(TagClipPath { id, outline })
     }
 }
 
@@ -58,7 +58,6 @@ impl TagPath {
     }
     pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
         let options = options.apply(&self.attrs);
-        println!("draw path {:?} {:?}", self.attrs, &options.clip_path);
         options.draw(scene, &self.outline);
 
         #[cfg(feature="debug")]
@@ -69,7 +68,7 @@ impl TagPath {
             self.debug.draw(scene, &options);
         }
     }
-    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagPath, Error<'i>> {
+    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagPath, Error> {
         use std::f32::consts::PI;
         use svgtypes::{PathParser, PathSegment};
 
