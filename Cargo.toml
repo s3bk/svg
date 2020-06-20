@@ -15,12 +15,12 @@ roxmltree = "0.11"
 svgtypes = "0.5"
 log = "*"
 itertools = "*"
-pathfinder_geometry = { path = "../pathfinder/geometry" }
-pathfinder_content = { path = "../pathfinder/content" }
-pathfinder_renderer = { path = "../pathfinder/renderer" }
-pathfinder_color = { path = "../pathfinder/color" }
-pathfinder_simd = { path = "../pathfinder/simd" }
-pathfinder_view = { path = "../pathfinder_view" }
+pathfinder_geometry = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_content = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_renderer = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_color = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_simd = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_view = { git = "https://github.com/s3bk/pathfinder_view/" }
 font = { path = "../font", optional = true }
 lazy_static = { version = "*", optional = true }
 

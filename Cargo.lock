@@ -1211,6 +1211,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_view"
 version = "0.1.0"
+source = "git+https://github.com/s3bk/pathfinder_view/#3b2196c94efdfa0df1bf3174d7a280f4d581ce10"
 dependencies = [
  "bincode",
  "cfg-if",
