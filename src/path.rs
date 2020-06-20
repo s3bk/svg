@@ -46,6 +46,7 @@ pub struct TagPath {
     outline: Outline,
     attrs: Attrs,
     debug: DebugInfo,
+    pub id: Option<String>,
 }
 impl TagPath {
     pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
@@ -75,8 +76,10 @@ impl TagPath {
         let mut debug = DebugInfo::new();
         let mut contour = Contour::new();
         let mut outline = Outline::new();
+        let id = node.attribute("id").map(|s| s.into());
         
         if let Some(d) = node.attribute("d") {
+            //println!("path id={:?} d={:?}", id.unwrap_or(""), d);
             let mut start = Vector2F::default();
             let mut last = Vector2F::default();
             let mut last_quadratic_control_point = None;
@@ -146,13 +149,13 @@ impl TagPath {
                         last_cubic_control_point = Some(c2);
                     }
                     PathSegment::SmoothCurveTo { abs, x2, y2, x, y } => {
+                        let c1 = reflect_on(last_cubic_control_point, last);
                         let mut c2 = vec(x2, y2);
                         let mut p = vec(x, y);
                         if !abs {
                             c2 = last + c2;
                             p = last + p;
                         }
-                        let c1 = reflect_on(last_cubic_control_point, p);
 
                         contour.push_cubic(c1, c2, p);
                         last = p;
@@ -173,11 +176,11 @@ impl TagPath {
                         last_cubic_control_point = None;
                     }
                     PathSegment::SmoothQuadratic { abs, x, y } => {
+                        let c1 = reflect_on(last_quadratic_control_point, last);
                         let mut p = vec(x, y);
                         if !abs {
                             p = last + p;
                         }
-                        let c1 = reflect_on(last_quadratic_control_point, p);
 
                         contour.push_quadratic(c1, p);
                         last = p;
@@ -205,6 +208,7 @@ impl TagPath {
                         if last != start {
                             contour.push_endpoint(start);
                         }
+                        last = start;
                         contour.close();
                     }
                 }
@@ -213,10 +217,11 @@ impl TagPath {
                 outline.push_contour(contour.clone());
                 contour.clear();
             }
+            //println!(" -> {:?}", outline);
         }
 
         let attrs = Attrs::parse(node)?;
-        Ok(TagPath { outline, attrs, debug })
+        Ok(TagPath { id, outline, attrs, debug })
     }
 }
 

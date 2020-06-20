@@ -32,6 +32,9 @@ use rect::TagRect;
 mod polygon;
 use polygon::TagPolygon;
 
+mod ellipse;
+use ellipse::TagEllipse;
+
 mod debug;
 
 mod error;
@@ -138,6 +141,7 @@ pub enum Item {
     Defs(TagDefs),
     Rect(TagRect),
     Polygon(TagPolygon),
+    Ellipse(TagEllipse),
     LinearGradient(TagLinearGradient),
     RadialGradient(TagRadialGradient),
     ClipPath(TagClipPath),
@@ -151,6 +155,7 @@ impl Item {
             Item::Path(ref tag) => tag.compose_to(scene, &options),
             Item::Rect(ref tag) => tag.compose_to(scene, &options),
             Item::Polygon(ref tag) => tag.compose_to(scene, &options),
+            Item::Ellipse(ref tag) => tag.compose_to(scene, &options),
             _ => {}
         }
     }
@@ -160,6 +165,7 @@ impl Item {
             Item::Path(ref tag) => tag.bounds(&options),
             Item::Rect(ref tag) => tag.bounds(&options),
             Item::Polygon(ref tag) => tag.bounds(&options),
+            Item::Ellipse(ref tag) => tag.bounds(&options),
             _ => None
         }
     }
@@ -235,7 +241,12 @@ fn link(ids: &mut ItemCollection, item: &Arc<Item>) {
         Item::LinearGradient(TagLinearGradient { id: Some(id), .. }) |
         Item::RadialGradient(TagRadialGradient { id: Some(id), .. }) |
         Item::ClipPath(TagClipPath { id: Some(id), .. }) |
-        Item::Filter(TagFilter { id: Some(id), .. }) => {
+        Item::Filter(TagFilter { id: Some(id), .. }) |
+        Item::Path(TagPath { id: Some(id ), .. }) |
+        Item::Rect(TagRect { id: Some(id), .. }) |
+        Item::Polygon(TagPolygon { id: Some(id), .. }) |
+        Item::Ellipse(TagEllipse { id: Some(id), .. })
+        => {
              ids.insert(id.clone(), item.clone());
         }
         _ => {}
@@ -259,7 +270,7 @@ fn parse_node_list<'a, 'i: 'a>(nodes: impl Iterator<Item=Node<'a, 'i>>) -> Resul
 }
 
 fn parse_node<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Option<Item>, Error> {
-    println!("<{:?}:{} id={:?}, ...>", node.tag_name().namespace(), node.tag_name().name(), node.attribute("id"));
+    //println!("<{:?}:{} id={:?}, ...>", node.tag_name().namespace(), node.tag_name().name(), node.attribute("id"));
     Ok(match node.tag_name().name() {
         "title" | "desc" | "metadata" => None,
         "defs" => Some(Item::Defs(TagDefs::parse(node)?)),
@@ -267,6 +278,7 @@ fn parse_node<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Option<Item>, Error> {
         "g" => Some(Item::G(TagG::parse(node)?)),
         "rect" => Some(Item::Rect(TagRect::parse(node)?)),
         "polygon" => Some(Item::Polygon(TagPolygon::parse(node)?)),
+        "ellipse" | "circle" => Some(Item::Ellipse(TagEllipse::parse(node)?)),
         "linearGradient" => Some(Item::LinearGradient(TagLinearGradient::parse(node)?)),
         "radialGradient" => Some(Item::RadialGradient(TagRadialGradient::parse(node)?)),
         "clipPath" => Some(Item::ClipPath(TagClipPath::parse(node)?)),

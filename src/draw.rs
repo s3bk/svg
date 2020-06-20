@@ -110,7 +110,6 @@ impl<'a> DrawOptions<'a> {
         if let ClipPathAttr::Ref(ref id) = self.clip_path {
             if let Some(Item::ClipPath(TagClipPath { outline, .. })) = self.ctx.resolve(id).map(|t| &**t) {
                 let outline = outline.clone().transformed(&self.transform);
-                println!("clip path: {:?}", outline);
                 //self.debug_outline(scene, &outline, ColorU::new(0, 255, 0, 50));
 
                 let mut clip_path = ClipPath::new(outline);
@@ -127,7 +126,6 @@ impl<'a> DrawOptions<'a> {
         
         if let Some(ref fill) = self.resolve_paint(&self.fill, self.fill_opacity) {
             let outline = path.clone().transformed(&self.transform);
-            println!("draw {:?}", outline);
             let paint_id = scene.push_paint(fill);
             let mut draw_path = DrawPath::new(outline, paint_id);
             draw_path.set_fill_rule(self.fill_rule);

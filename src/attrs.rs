@@ -76,7 +76,6 @@ impl Attrs {
         for attr in node.attributes() {
             attrs.parse_entry(attr.name(), attr.value())?;
         }
-        println!("attrs: {:?} -> {:?}", node, &attrs);
         Ok(attrs)
     }
 

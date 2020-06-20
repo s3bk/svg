@@ -7,6 +7,7 @@ use svgtypes::PointsParser;
 pub struct TagPolygon {
     outline: Outline,
     attrs: Attrs,
+    pub id: Option<String>,
 }
 impl TagPolygon {
     pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
@@ -29,7 +30,8 @@ impl TagPolygon {
         outline.push_contour(contour);
         
         let attrs = Attrs::parse(node)?;
-        Ok(TagPolygon { outline, attrs })
+        let id = node.attribute("id").map(|s| s.into());
+        Ok(TagPolygon { id, outline, attrs })
     }
 
     pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
