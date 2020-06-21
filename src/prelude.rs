@@ -7,7 +7,7 @@ pub use pathfinder_geometry::{
 };
 pub use crate::{
     error::Error,
-    Item,
+    Item, Tag,
     debug::DebugInfo, 
     attrs::Attrs,
     draw::{DrawOptions, DrawContext},

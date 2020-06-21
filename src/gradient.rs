@@ -52,6 +52,17 @@ fn href(node: &Node) -> Option<String> {
     node.attribute((xlink, "href")).map(|s| s.to_owned())
 }
 
+impl Tag for TagLinearGradient {
+    fn id(&self) -> Option<&str> {
+        self.id.as_ref().map(|s| s.as_str())
+    }
+}
+impl Tag for TagRadialGradient {
+    fn id(&self) -> Option<&str> {
+        self.id.as_ref().map(|s| s.as_str())
+    }
+}
+
 impl TagLinearGradient {
     pub fn parse<'a, 'i: 'a>(node: &Node<'a, 'i>) -> Result<TagLinearGradient, Error> {
         let x1 = node.attribute("x1").map(Length::from_str).transpose()?;

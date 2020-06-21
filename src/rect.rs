@@ -13,8 +13,8 @@ pub struct TagRect {
     attrs: Attrs,
     pub id: Option<String>,
 }
-impl TagRect {
-    pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+impl Tag for TagRect {
+    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
         let (w, h) = self.size;
         if (w.num == 0.) | (h.num == 0.) | (!self.attrs.display) {
             return None;
@@ -26,7 +26,7 @@ impl TagRect {
         options.bounds(RectF::new(origin, size))
     }
 
-    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+    fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
         let (w, h) = self.size;
         if (w.num == 0.) | (h.num == 0.) | (!self.attrs.display) {
             return;
@@ -42,6 +42,11 @@ impl TagRect {
 
         options.draw(scene, &outline);
     }
+    fn id(&self) -> Option<&str> {
+        self.id.as_ref().map(|s| s.as_str())
+    }
+}
+impl TagRect {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagRect, Error> {
         let x = node.attribute("x").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
         let y = node.attribute("y").map(Length::from_str).transpose()?.unwrap_or(Length::zero());

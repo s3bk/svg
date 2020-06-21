@@ -12,8 +12,8 @@ pub struct TagEllipse {
     attrs: Attrs,
     pub id: Option<String>,
 }
-impl TagEllipse {
-    pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+impl Tag for TagEllipse {
+    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
         if (self.radius.0.num == 0.) | (self.radius.1.num == 0.) | (!self.attrs.display) {
             return None;
         }
@@ -24,7 +24,7 @@ impl TagEllipse {
         options.bounds(RectF::new(center - radius, radius * 2.0))
     }
 
-    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+    fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
         if (self.radius.0.num == 0.) | (self.radius.1.num == 0.) | (!self.attrs.display) {
             return;
         }
@@ -42,6 +42,11 @@ impl TagEllipse {
 
         options.draw(scene, &outline);
     }
+    fn id(&self) -> Option<&str> {
+        self.id.as_ref().map(|s| s.as_str())
+    }
+}
+impl TagEllipse {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagEllipse, Error> {
         let cx = node.attribute("cx").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
         let cy = node.attribute("cy").map(Length::from_str).transpose()?.unwrap_or(Length::zero());

@@ -16,6 +16,11 @@ pub struct TagFilter {
     pub filters: Vec<Filter>,
     pub id: Option<String>,
 }
+impl Tag for TagFilter {
+    fn id(&self) -> Option<&str> {
+        self.id.as_ref().map(|s| s.as_str())
+    }
+}
 impl TagFilter {
     pub fn apply(&self, scene: &mut Scene, options: &DrawOptions, bounds: RectF, f: impl FnOnce(&mut Scene, &DrawOptions)) {
         if let Some(first) = self.filters.first() {

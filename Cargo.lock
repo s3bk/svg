@@ -356,6 +356,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum_dispatch"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8273aa304ee265c9314edf7fa4b5419832c9d72f76ae609ccc614d1a0ac4ca18"
+dependencies = [
+ "once_cell",
+ "proc-macro2 1.0.18",
+ "quote 1.0.7",
+ "syn",
+]
+
+[[package]]
 name = "float-cmp"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1008,6 +1020,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "once_cell"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b631f7e854af39a1739f401cf34a8a013dfe09eac4fa4dba91e9768bd28168d"
+
+[[package]]
 name = "ordered-float"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1052,7 +1070,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_builder"
 version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder/#28555bd25396b90606ee86e98cd52ebd9f981fb1"
+source = "git+https://github.com/s3bk/pathfinder/#ebc43f7a24dd4e9225f8dd08fb1b87ff3c9e44c3"
 dependencies = [
  "pathfinder_content",
  "pathfinder_geometry",
@@ -1082,7 +1100,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_export"
 version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder/#28555bd25396b90606ee86e98cd52ebd9f981fb1"
+source = "git+https://github.com/s3bk/pathfinder/#ebc43f7a24dd4e9225f8dd08fb1b87ff3c9e44c3"
 dependencies = [
  "deflate",
  "pathfinder_color",
@@ -1114,7 +1132,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_gpu"
 version = "0.5.0"
-source = "git+https://github.com/s3bk/pathfinder/#28555bd25396b90606ee86e98cd52ebd9f981fb1"
+source = "git+https://github.com/s3bk/pathfinder/#ebc43f7a24dd4e9225f8dd08fb1b87ff3c9e44c3"
 dependencies = [
  "bitflags",
  "half",
@@ -1141,7 +1159,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_log"
 version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder/#28555bd25396b90606ee86e98cd52ebd9f981fb1"
+source = "git+https://github.com/s3bk/pathfinder/#ebc43f7a24dd4e9225f8dd08fb1b87ff3c9e44c3"
 dependencies = [
  "log",
 ]
@@ -1197,6 +1215,7 @@ dependencies = [
 name = "pathfinder_svg"
 version = "0.1.0"
 dependencies = [
+ "enum_dispatch",
  "font",
  "itertools",
  "lazy_static",
@@ -1253,7 +1272,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_webgl"
 version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder/#28555bd25396b90606ee86e98cd52ebd9f981fb1"
+source = "git+https://github.com/s3bk/pathfinder/#ebc43f7a24dd4e9225f8dd08fb1b87ff3c9e44c3"
 dependencies = [
  "image",
  "js-sys",

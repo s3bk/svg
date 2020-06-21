@@ -21,6 +21,11 @@ pub struct TagClipPath {
     pub id: Option<String>,
     pub outline: Outline,
 }
+impl Tag for TagClipPath {
+    fn id(&self) -> Option<&str> {
+        self.id.as_ref().map(|s| s.as_str())
+    }
+}
 impl TagClipPath {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagClipPath, Error> {
         let mut outline = Outline::new();
@@ -47,8 +52,8 @@ pub struct TagPath {
     debug: DebugInfo,
     pub id: Option<String>,
 }
-impl TagPath {
-    pub fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+impl Tag for TagPath {
+    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
         if self.attrs.display && self.outline.len() > 0 {
             let options = options.apply(&self.attrs);
             options.bounds(self.outline.bounds())
@@ -56,7 +61,7 @@ impl TagPath {
             None
         }
     }
-    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+    fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
         let options = options.apply(&self.attrs);
         options.draw(scene, &self.outline);
 
@@ -68,6 +73,11 @@ impl TagPath {
             self.debug.draw(scene, &options);
         }
     }
+    fn id(&self) -> Option<&str> {
+        self.id.as_ref().map(|s| s.as_str())
+    }
+}
+impl TagPath {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagPath, Error> {
         use std::f32::consts::PI;
         use svgtypes::{PathParser, PathSegment};

@@ -17,13 +17,25 @@ pub struct Svg {
     pub named_items: ItemCollection,
     root: Arc<Item>,
 }
-
-impl TagSvg {
-    pub fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        for item in &self.items {
+impl Tag for TagSvg {
+    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+        self.view_box.as_ref().map(|r| r.as_rectf())
+        .or_else(|| max_bounds(self.items.iter().flat_map(|item| item.bounds(&options))))
+    }
+    fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+        for item in self.items.iter() {
             item.compose_to(scene, &options);
         }
     }
+    fn id(&self) -> Option<&str> {
+        self.id.as_ref().map(|s| s.as_str())
+    }
+    fn children(&self) -> &[Arc<Item>] {
+        &*self.items
+    }
+}
+
+impl TagSvg {
     pub fn parse(node: &Node) -> Result<TagSvg, Error> {
         let view_box = node.attribute("viewBox").map(Rect::parse).transpose()?;
         let width = node.attribute("width").map(length).transpose()?;
