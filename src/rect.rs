@@ -31,6 +31,7 @@ impl Tag for TagRect {
         if (w.num == 0.) | (h.num == 0.) | (!self.attrs.display) {
             return;
         }
+        let options = options.apply(&self.attrs);
 
         let origin = options.resolve_point(self.pos);
         let size = options.resolve_point(self.size);
@@ -55,12 +56,13 @@ impl TagRect {
         let rx = node.attribute("rx").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
         let ry = node.attribute("ry").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
         let id = node.attribute("id").map(|s| s.into());
+        let attrs = Attrs::parse(node)?;
 
         Ok(TagRect {
             pos: (x, y),
             size: (width, height),
             radius: (rx, ry),
-            attrs: Attrs::parse(node)?,
+            attrs,
             id,
         })
     }

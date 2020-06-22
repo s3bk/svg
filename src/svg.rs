@@ -9,7 +9,8 @@ use roxmltree::{Document};
 pub struct TagSvg {
     pub (crate) id: Option<String>,
     pub (crate) items: Vec<Arc<Item>>,
-    view_box: Option<Rect>,
+    pub (crate) view_box: Option<Rect>,
+    pub attrs: Attrs,
 }
 
 #[derive(Debug)]
@@ -19,10 +20,11 @@ pub struct Svg {
 }
 impl Tag for TagSvg {
     fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
-        self.view_box.as_ref().map(|r| r.as_rectf())
+        self.view_box.as_ref().map(|r| options.resolve_rect(r))
         .or_else(|| max_bounds(self.items.iter().flat_map(|item| item.bounds(&options))))
     }
     fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+        let options = options.apply(&self.attrs);
         for item in self.items.iter() {
             item.compose_to(scene, &options);
         }
@@ -41,6 +43,7 @@ impl TagSvg {
         let width = node.attribute("width").map(length).transpose()?;
         let height = node.attribute("height").map(length).transpose()?;
         let id = node.attribute("id").map(|s| s.into());
+        let attrs = Attrs::parse(node)?;
     
         let view_box = match (view_box, width, height) {
             (Some(r), _, _) => Some(r),
@@ -50,7 +53,7 @@ impl TagSvg {
 
         let items = parse_node_list(node.children())?;
     
-        Ok(TagSvg { items, view_box, id })
+        Ok(TagSvg { items, view_box, id, attrs })
     }
 }
 
@@ -66,7 +69,7 @@ impl Svg {
         options.transform = transform;
 
         if let Item::Svg(TagSvg { view_box: Some(r), .. }) = &*self.root {
-            scene.set_view_box(options.transform * r.as_rectf());
+            scene.set_view_box(options.transform * options.resolve_rect(r));
         }
         self.root.compose_to(&mut scene, &options);
         scene
@@ -74,11 +77,12 @@ impl Svg {
 
     /// get the viewbox (computed if missing)
     pub fn view_box(&self) -> Option<RectF> {
+        let ctx = DrawContext::new(self);
+        let options = DrawOptions::new(&ctx);
+        
         if let Item::Svg(TagSvg { view_box: Some(r), .. }) = &*self.root {
-            return Some(r.as_rectf());
+            return Some(options.resolve_rect(r));
         } else {
-            let ctx = DrawContext::new(self);
-            let options = DrawOptions::new(&ctx);
             self.root.bounds(&options)
         }
     }

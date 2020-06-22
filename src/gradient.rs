@@ -4,7 +4,6 @@ use pathfinder_color::{ColorU};
 use pathfinder_geometry::line_segment::LineSegment2F;
 use pathfinder_simd::default::F32x2;
 use svgtypes::Color;
-use crate::merge;
 
 #[derive(Debug)]
 pub struct TagLinearGradient {
@@ -47,10 +46,6 @@ pub struct TagStop {
     pub opacity: f32,
 }
 
-fn href(node: &Node) -> Option<String> {
-    let xlink = node.lookup_namespace_uri(Some("xlink")).unwrap_or_default();
-    node.attribute((xlink, "href")).map(|s| s.to_owned())
-}
 
 impl Tag for TagLinearGradient {
     fn id(&self) -> Option<&str> {
@@ -91,15 +86,14 @@ impl TagLinearGradient {
         })
     }
 
-
     pub fn build(&self, options: &DrawOptions, opacity: f32) -> Gradient {
-        if let Some(item) = self.xlink_href.as_ref().and_then(|href| options.ctx.resolve(&href[1..])) {
+        if let Some(item) = self.xlink_href.as_ref().and_then(|href| options.ctx.resolve_href(&href)) {
             match &**item {
                 Item::LinearGradient(other) => {
                     return PartialLinearGradient {
                         from: merge_point(&self.from, &other.from),
                         to: merge_point(&self.to, &other.to),
-                        gradient_transform: merge(&self.gradient_transform, &other.gradient_transform),
+                        gradient_transform: self.gradient_transform.or(other.gradient_transform),
                         stops: select_stops(&self.stops, &other.stops)
                     }.build(options, opacity)
                 },
@@ -137,8 +131,8 @@ fn merge_point(
     b: &(Option<Length>, Option<Length>)
 ) -> (Option<Length>, Option<Length>) {
     (
-        merge(&a.0, &b.0),
-        merge(&a.1, &b.1)
+        a.0.or(b.0),
+        a.1.or(b.1)
     )
 }
 fn length_or_percent(a: Option<Length>, default: f64) -> Length {

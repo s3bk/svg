@@ -70,6 +70,8 @@ pub enum Item {
     ClipPath(TagClipPath),
     Filter(TagFilter),
     Svg(TagSvg),
+    Use(TagUse),
+    Symbol(TagSymbol),
 }
 
 #[enum_dispatch(Item)]
@@ -123,23 +125,26 @@ fn parse_node_list<'a, 'i: 'a>(nodes: impl Iterator<Item=Node<'a, 'i>>) -> Resul
 
 fn parse_node<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Option<Item>, Error> {
     //println!("<{:?}:{} id={:?}, ...>", node.tag_name().namespace(), node.tag_name().name(), node.attribute("id"));
-    Ok(match node.tag_name().name() {
-        "title" | "desc" | "metadata" => None,
-        "defs" => Some(Item::Defs(TagDefs::parse(node)?)),
-        "path" => Some(Item::Path(TagPath::parse(node)?)),
-        "g" => Some(Item::G(TagG::parse(node)?)),
-        "rect" => Some(Item::Rect(TagRect::parse(node)?)),
-        "polygon" => Some(Item::Polygon(TagPolygon::parse(node)?)),
-        "ellipse" | "circle" => Some(Item::Ellipse(TagEllipse::parse(node)?)),
-        "linearGradient" => Some(Item::LinearGradient(TagLinearGradient::parse(node)?)),
-        "radialGradient" => Some(Item::RadialGradient(TagRadialGradient::parse(node)?)),
-        "clipPath" => Some(Item::ClipPath(TagClipPath::parse(node)?)),
-        "filter" => Some(Item::Filter(TagFilter::parse(node)?)),
-        "svg" => Some(Item::Svg(TagSvg::parse(node)?)),
+    let item = match node.tag_name().name() {
+        "title" | "desc" | "metadata" => return Ok(None),
+        "defs" => Item::Defs(TagDefs::parse(node)?),
+        "path" => Item::Path(TagPath::parse(node)?),
+        "g" => Item::G(TagG::parse(node)?),
+        "rect" => Item::Rect(TagRect::parse(node)?),
+        "polygon" => Item::Polygon(TagPolygon::parse(node)?),
+        "ellipse" | "circle" => Item::Ellipse(TagEllipse::parse(node)?),
+        "linearGradient" => Item::LinearGradient(TagLinearGradient::parse(node)?),
+        "radialGradient" => Item::RadialGradient(TagRadialGradient::parse(node)?),
+        "clipPath" => Item::ClipPath(TagClipPath::parse(node)?),
+        "filter" => Item::Filter(TagFilter::parse(node)?),
+        "svg" => Item::Svg(TagSvg::parse(node)?),
+        "use" => Item::Use(TagUse::parse(node)?),
+        "symbol" => Item::Symbol(TagSymbol::parse(node)?),
         tag => {
             println!("unimplemented: {}", tag);
-            None
+            return Ok(None);
         }
-    })
+    };
+    Ok(Some(item))
 }
 

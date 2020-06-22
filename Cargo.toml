@@ -27,6 +27,7 @@ lazy_static = { version = "*", optional = true }
 
 [dev-dependencies]
 pathfinder_view = { git = "https://github.com/s3bk/pathfinder_view/" }
+env_logger = "*"
 
 [patch.crates-io]
 pathfinder_geometry = { path = "../pathfinder/geometry" }

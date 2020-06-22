@@ -13,6 +13,7 @@ use pathfinder_color::ColorU;
 use svgtypes::{Length, Color};
 use std::sync::Arc;
 
+#[derive(Clone, Debug)]
 pub struct DrawContext<'a> {
     pub svg: &'a Svg,
 
@@ -38,17 +39,24 @@ impl<'a> DrawContext<'a> {
     pub fn resolve(&self, id: &str) -> Option<&Arc<Item>> {
         self.svg.named_items.get(id)
     }
+    pub fn resolve_href(&self, href: &str) -> Option<&Arc<Item>> {
+        if href.starts_with("#") {
+            self.resolve(&href[1..])
+        } else {
+            None
+        }
+    }
 }
 
-#[derive(Clone)]
-pub struct DrawOptions<'a> {
+#[derive(Clone, Debug)]
+pub struct DrawOptions<'a, 'b> {
     pub ctx: &'a DrawContext<'a>,
 
-    pub fill: Option<Paint>,
+    pub fill: Option<&'b Paint>,
     pub fill_rule: FillRule,
     pub fill_opacity: f32,
 
-    pub stroke: Option<Paint>,
+    pub stroke: Option<&'b Paint>,
     pub stroke_style: StrokeStyle,
     pub stroke_opacity: f32,
 
@@ -58,9 +66,11 @@ pub struct DrawOptions<'a> {
 
     pub clip_path: ClipPathAttr,
     pub clip_rule: FillRule,
+
+    pub view_box: Option<RectF>,
 }
-impl<'a> DrawOptions<'a> {
-    pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {
+impl<'a, 'b: 'a> DrawOptions<'a, 'b> {
+    pub fn new(ctx: &'b DrawContext<'a>) -> DrawOptions<'a, 'b> {
         DrawOptions {
             ctx,
             opacity: 1.0,
@@ -77,6 +87,7 @@ impl<'a> DrawOptions<'a> {
             transform: Transform2F::from_scale(10.),
             clip_path: ClipPathAttr::None,
             clip_rule: FillRule::EvenOdd,
+            view_box: None
         }
     }
     pub fn bounds(&self, rect: RectF) -> Option<RectF> {
@@ -96,12 +107,12 @@ impl<'a> DrawOptions<'a> {
             None
         }
     }
-    fn resolve_paint(&self, paint: &Option<Paint>, opacity: f32) -> Option<PaPaint> {
+    fn resolve_paint(&self, paint: Option<&Paint>, opacity: f32) -> Option<PaPaint> {
         let opacity = opacity * self.opacity;
         let alpha = (255. * opacity) as u8;
-        match *paint {
-            Some(Paint::Color(Color { red, green, blue })) => Some(PaPaint::from_color(ColorU::new(red, green, blue, alpha))),
-            Some(Paint::Ref(ref id)) => match self.ctx.svg.named_items.get(id).map(|arc| &**arc) {
+        match paint {
+            Some(&Paint::Color(Color { red, green, blue })) => Some(PaPaint::from_color(ColorU::new(red, green, blue, alpha))),
+            Some(&Paint::Ref(ref id)) => match self.ctx.svg.named_items.get(id).map(|arc| &**arc) {
                 Some(Item::LinearGradient(ref gradient)) => Some(PaPaint::from_gradient(gradient.build(self, opacity))),
                 Some(Item::RadialGradient(ref gradient)) => Some(PaPaint::from_gradient(gradient.build(self, opacity))),
                 r => {
@@ -135,7 +146,7 @@ impl<'a> DrawOptions<'a> {
     pub fn draw(&self, scene: &mut Scene, path: &Outline) {
         let clip_path_id = self.clip_path_id(scene);
         
-        if let Some(ref fill) = self.resolve_paint(&self.fill, self.fill_opacity) {
+        if let Some(ref fill) = self.resolve_paint(self.fill, self.fill_opacity) {
             let outline = path.clone().transformed(&self.transform);
             let paint_id = scene.push_paint(fill);
             let mut draw_path = DrawPath::new(outline, paint_id);
@@ -143,7 +154,7 @@ impl<'a> DrawOptions<'a> {
             draw_path.set_clip_path(clip_path_id);
             scene.push_draw_path(draw_path);
         }
-        if let Some(ref stroke) = self.resolve_paint(&self.stroke, self.stroke_opacity) {
+        if let Some(ref stroke) = self.resolve_paint(self.stroke, self.stroke_opacity) {
             if self.stroke_style.line_width > 0. {
                 let paint_id = scene.push_paint(stroke);
                 let mut stroke = OutlineStrokeToFill::new(path, self.stroke_style);
@@ -155,26 +166,32 @@ impl<'a> DrawOptions<'a> {
             }
         }
     }
-    pub fn apply(&self, attrs: &Attrs) -> DrawOptions {
+    pub fn transform(&mut self, transform: Transform2F) {
+        self.transform = self.transform * transform;
+    }
+    pub fn apply<'c>(&self, attrs: &'c Attrs) -> DrawOptions<'a, 'c> where 'b: 'c {
         let mut stroke_style = self.stroke_style;
         if let Some(length) = attrs.stroke_width {
             stroke_style.line_width = length.num as f32;
         }
-        DrawOptions {
+        let new = DrawOptions {
             clip_path: attrs.clip_path.clone().unwrap_or_else(|| self.clip_path.clone()),
             clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
             opacity: self.opacity * attrs.opacity.unwrap_or(1.0),
             transform: self.transform * attrs.transform,
-            fill: merge(&attrs.fill, &self.fill),
+            fill: attrs.fill.as_ref().or(self.fill),
             fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
             fill_opacity: attrs.fill_opacity.unwrap_or(self.fill_opacity),
-            stroke: merge(&attrs.stroke, &self.stroke),
+            stroke: attrs.stroke.as_ref().or(self.stroke),
             stroke_style,
             stroke_opacity: attrs.stroke_opacity.unwrap_or(self.stroke_opacity),
             #[cfg(feature="debug")]
             debug_font: self.debug_font.clone(),
             .. *self
-        }
+        };
+        debug!("fill {:?} + {:?} -> {:?}", self.fill, attrs.fill, new.fill);
+        debug!("stroke {:?} + {:?} -> {:?}", self.stroke, attrs.stroke, new.stroke);
+        new
     }
     pub fn resolve_length(&self, length: Length) -> f32 {
         let scale = match length.unit {
@@ -195,6 +212,20 @@ impl<'a> DrawOptions<'a> {
         let x = self.resolve_length(x);
         let y = self.resolve_length(y);
         vec2f(x, y)
+    }
+
+    pub fn resolve_rect(&self, rect: &Rect) -> RectF {
+        RectF::new(self.resolve_point(rect.origin()), self.resolve_point(rect.size()))
+    }
+
+    pub fn apply_viewbox(&mut self, size: (Length, Length), view_box: &Rect) {
+        let view_box = self.resolve_rect(view_box);
+        let size = self.resolve_point(size);
+        self.transform = self.transform
+            * Transform2F::from_scale(view_box.size().inv() * size)
+            * Transform2F::from_translation(-view_box.origin());
+        
+        self.view_box = Some(view_box);
     }
 }
 

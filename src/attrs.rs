@@ -27,7 +27,7 @@ impl Default for Attrs {
             clip_rule: Some(FillRule::Winding),
             transform: Transform2F::default(),
             opacity: Some(1.0),
-            fill: None,
+            fill: Some(Paint::Color(Color::black())),
             fill_rule: Some(FillRule::Winding),
             fill_opacity: Some(1.0),
             stroke: None,
@@ -50,7 +50,7 @@ pub enum Paint {
 impl Paint {
     pub fn parse(s: &str) -> Result<Paint, Error> {
         use svgtypes::Paint as SvgPaint;
-        Ok(match SvgPaint::from_str(s)? {
+        let paint = match SvgPaint::from_str(s)? {
             SvgPaint::None => Paint::None,
             SvgPaint::Inherit => Paint::Inherit,
             SvgPaint::CurrentColor => Paint::CurrentColor,
@@ -60,7 +60,9 @@ impl Paint {
                 dbg!(p);
                 return Err(Error::InvalidAttributeValue(s.into()));
             }
-        })
+        };
+        debug!("Paint::parse({:?}) -> {:?}", s, paint);
+        Ok(paint)
     }
     pub fn is_none(&self) -> bool {
         matches!(*self, Paint::None)
@@ -81,10 +83,10 @@ impl Attrs {
             "clip-path" => self.clip_path = ClipPathAttr::parse(val)?,
             "clip-rule" => self.clip_rule = fill_rule(val)?,
             "opacity" => self.opacity = (inherit(opacity))(val)?,
-            "fill" => self.fill = Some(Paint::parse(val)?),
+            "fill" => self.fill = (inherit(Paint::parse))(val)?,
             "fill-opacity" => self.fill_opacity = Some(opacity(val)?),
             "fill-rule" => self.fill_rule = fill_rule(val)?,
-            "stroke" => self.stroke = Some(Paint::parse(val)?),
+            "stroke" => self.stroke = (inherit(Paint::parse))(val)?,
             "stroke-width" => self.stroke_width = Some(val.parse()?),
             "stroke-linecap" => {},
             "stroke-linejoin" => {},
