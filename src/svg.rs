@@ -63,15 +63,19 @@ impl Svg {
     }
 
     pub fn compose_with_transform(&self, transform: Transform2F) -> Scene {
-        let mut scene = Scene::new();
         let ctx = DrawContext::new(self);
         let mut options = DrawOptions::new(&ctx);
         options.transform = transform;
+        self.compose_with_options(&options)
+    }
 
+    pub fn compose_with_options(&self, options: &DrawOptions) -> Scene {
+        let mut scene = Scene::new();
+        
         if let Item::Svg(TagSvg { view_box: Some(r), .. }) = &*self.root {
             scene.set_view_box(options.transform * options.resolve_rect(r));
         }
-        self.root.compose_to(&mut scene, &options);
+        self.root.compose_to(&mut scene, options);
         scene
     }
 

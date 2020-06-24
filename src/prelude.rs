@@ -12,10 +12,13 @@ pub use crate::{
     attrs::Attrs,
     draw::{DrawOptions, DrawContext},
     util::*,
+    paint::{Color, Paint},
+    animate::*,
 };
 pub use roxmltree::Node;
 pub use svgtypes::{Length, LengthUnit};
 pub use std::str::FromStr;
+pub use crate::util::Parse;
 
 use std::collections::HashMap;
 use std::sync::Arc;

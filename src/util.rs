@@ -165,3 +165,23 @@ pub fn href(node: &Node) -> Option<String> {
     let xlink = node.lookup_namespace_uri(Some("xlink")).unwrap_or_default();
     node.attribute((xlink, "href")).map(|s| s.to_owned())
 }
+
+pub struct Iri(String);
+impl Parse for Iri {
+    fn parse(s: &str) -> Result<Self, Error> {
+        match crate::parser::func_iri(s) {
+            Ok(("", link)) => Ok(Iri(link.into())),
+            _ => Err(Error::InvalidAttributeValue(s.into()))
+        }
+    }
+}
+
+pub trait Parse: Sized {
+    fn parse(s: &str) -> Result<Self, Error>;
+}
+
+impl Parse for Length {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Ok(Length::from_str(s)?)
+    }
+}

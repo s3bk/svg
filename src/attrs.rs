@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::animate::*;
 
 use pathfinder_content::{
     fill::{FillRule}
@@ -11,10 +12,10 @@ pub struct Attrs {
     pub clip_rule: Option<FillRule>,
     pub transform: Transform2F,
     pub opacity: Option<f32>,
-    pub fill: Option<Paint>,
+    pub fill: Value<Fill>,
     pub fill_rule: Option<FillRule>,
     pub fill_opacity: Option<f32>,
-    pub stroke: Option<Paint>,
+    pub stroke: Value<Stroke>,
     pub stroke_width: Option<Length>,
     pub stroke_opacity: Option<f32>,
     pub display: bool,
@@ -27,10 +28,10 @@ impl Default for Attrs {
             clip_rule: Some(FillRule::Winding),
             transform: Transform2F::default(),
             opacity: Some(1.0),
-            fill: Some(Paint::Color(Color::black())),
+            fill: Value::new(Fill(None)),
             fill_rule: Some(FillRule::Winding),
             fill_opacity: Some(1.0),
-            stroke: None,
+            stroke: Value::new(Stroke(None)),
             stroke_width: Some(Length::new_number(1.0)),
             stroke_opacity: Some(1.0),
             display: true,
@@ -39,33 +40,48 @@ impl Default for Attrs {
     }
 }
 
+
 #[derive(Debug, Clone)]
-pub enum Paint {
-    None,
-    Inherit,
-    CurrentColor,
-    Color(Color),
-    Ref(String),
-}
-impl Paint {
-    pub fn parse(s: &str) -> Result<Paint, Error> {
-        use svgtypes::Paint as SvgPaint;
-        let paint = match SvgPaint::from_str(s)? {
-            SvgPaint::None => Paint::None,
-            SvgPaint::Inherit => Paint::Inherit,
-            SvgPaint::CurrentColor => Paint::CurrentColor,
-            SvgPaint::Color(color) => Paint::Color(color),
-            SvgPaint::FuncIRI(s, _)  => Paint::Ref(s.to_owned()),
-            p => {
-                dbg!(p);
-                return Err(Error::InvalidAttributeValue(s.into()));
-            }
-        };
-        debug!("Paint::parse({:?}) -> {:?}", s, paint);
-        Ok(paint)
+pub struct Fill(Option<Paint>);
+impl Resolve for Fill {
+    type Output = Paint;
+    fn resolve(&self, options: &DrawOptions) -> Self::Output {
+        self.0.clone().unwrap_or_else(|| options.fill.clone())
     }
-    pub fn is_none(&self) -> bool {
-        matches!(*self, Paint::None)
+}
+impl Parse for Fill {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Ok(Fill((inherit(Paint::parse))(s)?))
+    }
+}
+impl Interpolate for Fill {
+    fn linear(from: Self, to: Self, x: f32) -> Self {
+        Fill(Interpolate::linear(from.0, to.0, x))
+    }
+    fn add(a: Self, b: Self) -> Self {
+        Fill(Interpolate::add(a.0, b.0))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Stroke(Option<Paint>);
+impl Resolve for Stroke {
+    type Output = Paint;
+    fn resolve(&self, options: &DrawOptions) -> Self::Output {
+        self.0.clone().unwrap_or_else(|| options.stroke.clone())
+    }
+}
+impl Parse for Stroke {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Ok(Stroke((inherit(Paint::parse))(s)?))
+    }
+}
+impl Interpolate for Stroke {
+    fn linear(from: Self, to: Self, x: f32) -> Self {
+        Stroke(Interpolate::linear(from.0, to.0, x))
+    }
+    fn add(a: Self, b: Self) -> Self {
+        Stroke(Interpolate::add(a.0, b.0))
     }
 }
 
@@ -75,18 +91,33 @@ impl Attrs {
         for attr in node.attributes() {
             attrs.parse_entry(attr.name(), attr.value())?;
         }
+        for n in node.children().filter(|n| n.is_element()) {
+            match n.tag_name().name() {
+                "animate" | "animateColor" => attrs.parse_animate(&n)?,
+                _ => {}
+            }
+        }
         Ok(attrs)
     }
 
-    fn parse_entry<'a>(&mut self, key: &'a str, val: &'a str) -> Result<(), Error> {
+    fn parse_animate(&mut self, node: &Node) -> Result<(), Error> {
+        let key = node.attribute("attributeName").unwrap();
+        match key {
+            "fill" => self.fill.parse_animate_node(node),
+            "stroke" => self.stroke.parse_animate_node(node),
+            _ => Ok(())
+        }
+    }
+
+    fn parse_entry(&mut self, key: &str, val: &str) -> Result<(), Error> {
         match key {
             "clip-path" => self.clip_path = ClipPathAttr::parse(val)?,
             "clip-rule" => self.clip_rule = fill_rule(val)?,
             "opacity" => self.opacity = (inherit(opacity))(val)?,
-            "fill" => self.fill = (inherit(Paint::parse))(val)?,
+            "fill" => self.fill = Value::new(Fill((inherit(Paint::parse))(val)?)),
             "fill-opacity" => self.fill_opacity = Some(opacity(val)?),
             "fill-rule" => self.fill_rule = fill_rule(val)?,
-            "stroke" => self.stroke = (inherit(Paint::parse))(val)?,
+            "stroke" => self.stroke = Value::new(Stroke((inherit(Paint::parse))(val)?)),
             "stroke-width" => self.stroke_width = Some(val.parse()?),
             "stroke-linecap" => {},
             "stroke-linejoin" => {},

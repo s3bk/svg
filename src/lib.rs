@@ -2,7 +2,6 @@
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
 
-use enum_dispatch::enum_dispatch;
 use roxmltree::{Node, NodeType};
 use pathfinder_renderer::{
     scene::{Scene}
@@ -54,27 +53,67 @@ mod text;
 #[cfg(feature="text")]
 use text::*;
 
+mod animate;
+pub use animate::Time;
+
+mod paint;
+use paint::*;
+
+mod parser;
+
 use prelude::*;
 
-#[enum_dispatch]
-#[derive(Debug)]
-pub enum Item {
-    Path(TagPath),
-    G(TagG),
-    Defs(TagDefs),
-    Rect(TagRect),
-    Polygon(TagPolygon),
-    Ellipse(TagEllipse),
-    LinearGradient(TagLinearGradient),
-    RadialGradient(TagRadialGradient),
-    ClipPath(TagClipPath),
-    Filter(TagFilter),
-    Svg(TagSvg),
-    Use(TagUse),
-    Symbol(TagSymbol),
+// enum_dispatch breaks RLS, so we do it manually
+macro_rules! items {
+    ($(#[$meta:meta])* pub enum $name:ident { $($variant:ident($data:ty), )* }) => {
+        $( #[$meta] )*
+        pub enum $name {
+            $( $variant($data), )*
+        }
+        impl Tag for $name {
+            fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
+                match *self {
+                    $( $name::$variant ( ref tag ) => tag.compose_to(scene, options), )*
+                }
+            }
+            fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+                match *self {
+                    $( $name::$variant ( ref tag ) => tag.bounds(options), )*
+                }
+            }
+            fn id(&self) -> Option<&str> {
+                match *self {
+                    $( $name::$variant ( ref tag ) => tag.id(), )*
+                }
+            }
+            fn children(&self) -> &[Arc<Item>] {
+                match *self {
+                    $( $name::$variant ( ref tag ) => tag.children(), )*
+                }
+            }
+        }
+    };
 }
 
-#[enum_dispatch(Item)]
+items!(
+    #[derive(Debug)]
+    pub enum Item {
+        Path(TagPath),
+        G(TagG),
+        Defs(TagDefs),
+        Rect(TagRect),
+        Polygon(TagPolygon),
+        Ellipse(TagEllipse),
+        LinearGradient(TagLinearGradient),
+        RadialGradient(TagRadialGradient),
+        ClipPath(TagClipPath),
+        Filter(TagFilter),
+        Svg(TagSvg),
+        Use(TagUse),
+        Symbol(TagSymbol),
+    }
+);
+
 pub trait Tag: Sized + std::fmt::Debug {
     fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {}
     fn bounds(&self, options: &DrawOptions) -> Option<RectF> { None }

@@ -13,6 +13,8 @@ pub enum Error {
     InvalidAttributeValue(String),
     MissingAttribute(String),
     ParseFloat(ParseFloatError),
+    Color,
+    Paint,
     Utf8(Utf8Error),
     Gzip(IoError),
     NotSvg,

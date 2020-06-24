@@ -101,7 +101,7 @@ pub struct TagUse {
 }
 
 impl TagUse {
-    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagUse, Error> {
+    pub fn parse(node: &Node) -> Result<TagUse, Error> {
         let x = node.attribute("x").map(length).transpose()?;
         let y = node.attribute("y").map(length).transpose()?;
         let width = node.attribute("width").map(length).transpose()?;
@@ -114,7 +114,7 @@ impl TagUse {
             x, y, width, height, attrs, href, id,
         })
     }
-    fn content_transform<'a, 'b: 'a>(&'b self, options: &DrawOptions<'a, 'b>, item: &Item) -> DrawOptions<'a, 'b> {
+    fn content_transform<'a>(&self, options: &DrawOptions<'a>, item: &Item) -> DrawOptions<'a> {
         let mut options = options.apply(&self.attrs);
         let pos = options.resolve_point((self.x.unwrap_or_default(), self.y.unwrap_or_default()));
         options.transform(Transform2F::from_translation(pos));

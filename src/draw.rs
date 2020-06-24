@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use crate::{Svg, Paint, ClipPathAttr, TagClipPath};
+use crate::animate::{Time};
 use pathfinder_content::{
     outline::{Outline},
     stroke::{OutlineStrokeToFill, StrokeStyle, LineCap, LineJoin},
@@ -49,14 +50,14 @@ impl<'a> DrawContext<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct DrawOptions<'a, 'b> {
+pub struct DrawOptions<'a> {
     pub ctx: &'a DrawContext<'a>,
 
-    pub fill: Option<&'b Paint>,
+    pub fill: Paint,
     pub fill_rule: FillRule,
     pub fill_opacity: f32,
 
-    pub stroke: Option<&'b Paint>,
+    pub stroke: Paint,
     pub stroke_style: StrokeStyle,
     pub stroke_opacity: f32,
 
@@ -68,16 +69,18 @@ pub struct DrawOptions<'a, 'b> {
     pub clip_rule: FillRule,
 
     pub view_box: Option<RectF>,
+
+    pub time: Time,
 }
-impl<'a, 'b: 'a> DrawOptions<'a, 'b> {
-    pub fn new(ctx: &'b DrawContext<'a>) -> DrawOptions<'a, 'b> {
+impl<'a> DrawOptions<'a> {
+    pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {
         DrawOptions {
             ctx,
             opacity: 1.0,
-            fill: None,
+            fill: Paint::black(),
             fill_rule: FillRule::EvenOdd,
             fill_opacity: 1.0,
-            stroke: None,
+            stroke: Paint::None,
             stroke_opacity: 1.0,
             stroke_style: StrokeStyle {
                 line_width: 1.0,
@@ -87,16 +90,17 @@ impl<'a, 'b: 'a> DrawOptions<'a, 'b> {
             transform: Transform2F::from_scale(10.),
             clip_path: ClipPathAttr::None,
             clip_rule: FillRule::EvenOdd,
-            view_box: None
+            view_box: None,
+            time: Time::start(),
         }
     }
     pub fn bounds(&self, rect: RectF) -> Option<RectF> {
         let has_fill = matches!(*self,
-            DrawOptions { fill: Some(ref paint), fill_opacity, .. }
-            if !paint.is_none() && fill_opacity > 0.);
+            DrawOptions { ref fill, fill_opacity, .. }
+            if fill.is_visible() && fill_opacity > 0.);
         let has_stroke = matches!(*self,
-            DrawOptions { stroke: Some(ref paint), stroke_opacity, .. }
-            if !paint.is_none() && stroke_opacity > 0.
+            DrawOptions { ref stroke, stroke_opacity, .. }
+            if stroke.is_visible() && stroke_opacity > 0.
         );
 
         if has_stroke {
@@ -107,12 +111,12 @@ impl<'a, 'b: 'a> DrawOptions<'a, 'b> {
             None
         }
     }
-    fn resolve_paint(&self, paint: Option<&Paint>, opacity: f32) -> Option<PaPaint> {
+    fn resolve_paint(&self, paint: &Paint, opacity: f32) -> Option<PaPaint> {
         let opacity = opacity * self.opacity;
         let alpha = (255. * opacity) as u8;
-        match paint {
-            Some(&Paint::Color(Color { red, green, blue })) => Some(PaPaint::from_color(ColorU::new(red, green, blue, alpha))),
-            Some(&Paint::Ref(ref id)) => match self.ctx.svg.named_items.get(id).map(|arc| &**arc) {
+        match *paint {
+            Paint::Color(ref c) => Some(PaPaint::from_color(c.color_u(opacity))),
+            Paint::Ref(ref id) => match self.ctx.svg.named_items.get(id).map(|arc| &**arc) {
                 Some(Item::LinearGradient(ref gradient)) => Some(PaPaint::from_gradient(gradient.build(self, opacity))),
                 Some(Item::RadialGradient(ref gradient)) => Some(PaPaint::from_gradient(gradient.build(self, opacity))),
                 r => {
@@ -146,7 +150,7 @@ impl<'a, 'b: 'a> DrawOptions<'a, 'b> {
     pub fn draw(&self, scene: &mut Scene, path: &Outline) {
         let clip_path_id = self.clip_path_id(scene);
         
-        if let Some(ref fill) = self.resolve_paint(self.fill, self.fill_opacity) {
+        if let Some(ref fill) = self.resolve_paint(&self.fill, self.fill_opacity) {
             let outline = path.clone().transformed(&self.transform);
             let paint_id = scene.push_paint(fill);
             let mut draw_path = DrawPath::new(outline, paint_id);
@@ -154,7 +158,7 @@ impl<'a, 'b: 'a> DrawOptions<'a, 'b> {
             draw_path.set_clip_path(clip_path_id);
             scene.push_draw_path(draw_path);
         }
-        if let Some(ref stroke) = self.resolve_paint(self.stroke, self.stroke_opacity) {
+        if let Some(ref stroke) = self.resolve_paint(&self.stroke, self.stroke_opacity) {
             if self.stroke_style.line_width > 0. {
                 let paint_id = scene.push_paint(stroke);
                 let mut stroke = OutlineStrokeToFill::new(path, self.stroke_style);
@@ -169,7 +173,7 @@ impl<'a, 'b: 'a> DrawOptions<'a, 'b> {
     pub fn transform(&mut self, transform: Transform2F) {
         self.transform = self.transform * transform;
     }
-    pub fn apply<'c>(&self, attrs: &'c Attrs) -> DrawOptions<'a, 'c> where 'b: 'c {
+    pub fn apply(&self, attrs: &Attrs) -> DrawOptions<'a> {
         let mut stroke_style = self.stroke_style;
         if let Some(length) = attrs.stroke_width {
             stroke_style.line_width = length.num as f32;
@@ -179,10 +183,10 @@ impl<'a, 'b: 'a> DrawOptions<'a, 'b> {
             clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
             opacity: self.opacity * attrs.opacity.unwrap_or(1.0),
             transform: self.transform * attrs.transform,
-            fill: attrs.fill.as_ref().or(self.fill),
+            fill: attrs.fill.get(self),
             fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
             fill_opacity: attrs.fill_opacity.unwrap_or(self.fill_opacity),
-            stroke: attrs.stroke.as_ref().or(self.stroke),
+            stroke: attrs.stroke.get(self),
             stroke_style,
             stroke_opacity: attrs.stroke_opacity.unwrap_or(self.stroke_opacity),
             #[cfg(feature="debug")]

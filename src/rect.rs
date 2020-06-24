@@ -1,41 +1,63 @@
 use roxmltree::Node;
 use svgtypes::Length;
 use crate::prelude::*;
-use std::str::FromStr;
 
 use pathfinder_content::outline::{Outline, Contour};
 
 #[derive(Debug)]
 pub struct TagRect {
-    pos: (Length, Length),
-    size: (Length, Length),
-    radius: (Length, Length),
+    pos: ValueVector,
+    size: ValueVector,
+    radius: ValueVector,
     attrs: Attrs,
     pub id: Option<String>,
 }
+
+#[derive(Debug)]
+struct ValueVector {
+    x: Value<Length>,
+    y: Value<Length>
+}
+impl ValueVector {
+    fn new(x: Value<Length>, y: Value<Length>) -> ValueVector {
+        ValueVector { x, y }
+    }
+    fn get(&self, options: &DrawOptions) -> Vector2F {
+        let x = self.x.get(options);
+        let y = self.y.get(options);
+        vec2f(x, y)
+    }
+}
+
 impl Tag for TagRect {
     fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
-        let (w, h) = self.size;
-        if (w.num == 0.) | (h.num == 0.) | (!self.attrs.display) {
+        if !self.attrs.display {
             return None;
         }
         let options = options.apply(&self.attrs);
+
+        let size = self.size.get(&options);
+        if (size.x() == 0.) || (size.y() == 0.) {
+            return None;
+        }
         
-        let origin = options.resolve_point(self.pos);
-        let size = options.resolve_point(self.size);
+        let origin = self.pos.get(&options);
         options.bounds(RectF::new(origin, size))
     }
 
     fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let (w, h) = self.size;
-        if (w.num == 0.) | (h.num == 0.) | (!self.attrs.display) {
+        if !self.attrs.display {
             return;
         }
         let options = options.apply(&self.attrs);
 
-        let origin = options.resolve_point(self.pos);
-        let size = options.resolve_point(self.size);
-        let radius = options.resolve_point(self.radius);
+        let size = self.size.get(&options);
+        if (size.x() == 0.) || (size.y() == 0.) {
+            return;
+        }
+        
+        let origin = self.pos.get(&options);
+        let radius = self.radius.get(&options);
         let contour = Contour::from_rect_rounded(RectF::new(origin, size), radius);
 
         let mut outline = Outline::with_capacity(1);
@@ -49,19 +71,33 @@ impl Tag for TagRect {
 }
 impl TagRect {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagRect, Error> {
-        let x = node.attribute("x").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
-        let y = node.attribute("y").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
-        let width = node.attribute("width").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
-        let height = node.attribute("height").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
-        let rx = node.attribute("rx").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
-        let ry = node.attribute("ry").map(Length::from_str).transpose()?.unwrap_or(Length::zero());
+        let mut x = Value::parse_or_default(node.attribute("x"))?;
+        let mut y = Value::parse_or_default(node.attribute("y"))?;
+        let mut width = Value::parse_or_default(node.attribute("width"))?;
+        let mut height = Value::parse_or_default(node.attribute("height"))?;
+        let mut rx = Value::parse_or_default(node.attribute("rx"))?;
+        let mut ry = Value::parse_or_default(node.attribute("ry"))?;
         let id = node.attribute("id").map(|s| s.into());
         let attrs = Attrs::parse(node)?;
 
+        for n in node.children().filter(|n| n.is_element()) {
+            match n.tag_name().name() {
+                "animate" | "animateColor" => match n.attribute("attributeName").unwrap() {
+                    "x" => x.parse_animate_node(&n)?,
+                    "y" => y.parse_animate_node(&n)?,
+                    "width" => width.parse_animate_node(&n)?,
+                    "height" => height.parse_animate_node(&n)?,
+                    "rx" => rx.parse_animate_node(&n)?,
+                    "ry" => ry.parse_animate_node(&n)?,
+                    _ => {}
+                }
+                _ => {}
+            }
+        }
         Ok(TagRect {
-            pos: (x, y),
-            size: (width, height),
-            radius: (rx, ry),
+            pos: ValueVector::new(x, y),
+            size: ValueVector::new(width, height),
+            radius: ValueVector::new(rx, ry),
             attrs,
             id,
         })
