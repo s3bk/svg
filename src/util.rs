@@ -1,5 +1,5 @@
 use pathfinder_geometry::{
-    vector::Vector2F,
+    vector::{Vector2F, vec2f},
     transform2d::Transform2F,
     rect::RectF,
 };
@@ -183,5 +183,19 @@ pub trait Parse: Sized {
 impl Parse for Length {
     fn parse(s: &str) -> Result<Self, Error> {
         Ok(Length::from_str(s)?)
+    }
+}
+
+pub fn get_attr<'a, 'i>(node: &Node<'a, 'i>, attr: &str) -> Result<&'a str, Error> {
+    match node.attribute(attr) {
+        Some(val) => Ok(val),
+        None => Err(Error::MissingAttribute(attr.into()))
+    }
+}
+
+pub fn parse_attr_or<'a, 'i, T: Parse>(node: &Node<'a, 'i>, attr: &str, default: T) -> Result<T, Error> {
+    match node.attribute(attr) {
+        Some(val) => T::parse(val),
+        None => Ok(default)
     }
 }

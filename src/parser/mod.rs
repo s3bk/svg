@@ -2,12 +2,13 @@ pub mod color;
 //mod time;
 
 use nom::{
-    sequence::{preceded, delimited},
-    character::complete::none_of,
+    sequence::{preceded, delimited, tuple},
+    character::complete::{none_of, space0, space1},
     bytes::complete::{tag},
     branch::alt,
     multi::many1_count,
     combinator::{map, map_res, recognize},
+    number::complete::float,
     IResult,
 };
 use crate::prelude::*;
@@ -66,4 +67,26 @@ pub fn parse_paint(s: &str) -> Result<Paint, Error> {
 #[test]
 fn test_paint() {
     assert_eq!(parse_paint("url(#radialGradient862)").unwrap(), Paint::Ref("radialGradient862".into()));
+}
+
+fn list_sep(i: &str) -> IResult<&str, &str, ()> {
+    recognize(alt((
+        recognize(tuple((tag(","), space0))),
+        space1
+    )))(i)
+}
+pub fn number_list_4(s: &str) -> Result<[f32; 4], Error> {
+    match (|i| -> IResult<&str, [f32; 4], ()> {
+        let (i, a) = float(i)?;
+        let (i, _) = list_sep(i)?;
+        let (i, b) = float(i)?;
+        let (i, _) = list_sep(i)?;
+        let (i, c) = float(i)?;
+        let (i, _) = list_sep(i)?;
+        let (i, d) = float(i)?;
+        Ok((i, [a, b, c, d]))
+    })(s) {
+        Ok((_, list)) => Ok(list),
+        Err(_) => Err(Error::InvalidAttributeValue(s.into()))
+    }
 }
