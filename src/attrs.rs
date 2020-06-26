@@ -10,7 +10,7 @@ use svgtypes::{Length, Color};
 pub struct Attrs {
     pub clip_path: Option<ClipPathAttr>,
     pub clip_rule: Option<FillRule>,
-    pub transform: Transform2F,
+    pub transform: Transform,
     pub opacity: Option<f32>,
     pub fill: Value<Fill>,
     pub fill_rule: Option<FillRule>,
@@ -26,7 +26,7 @@ impl Default for Attrs {
         Attrs {
             clip_path: Some(ClipPathAttr::None),
             clip_rule: Some(FillRule::Winding),
-            transform: Transform2F::default(),
+            transform: Transform::default(),
             opacity: Some(1.0),
             fill: Value::new(Fill(None)),
             fill_rule: Some(FillRule::Winding),
@@ -54,14 +54,7 @@ impl Parse for Fill {
         Ok(Fill((inherit(Paint::parse))(s)?))
     }
 }
-impl Interpolate for Fill {
-    fn linear(from: Self, to: Self, x: f32) -> Self {
-        Fill(Interpolate::linear(from.0, to.0, x))
-    }
-    fn add(a: Self, b: Self) -> Self {
-        Fill(Interpolate::add(a.0, b.0))
-    }
-}
+wrap_option_iterpolate!(Fill);
 
 #[derive(Debug, Clone)]
 pub struct Stroke(Option<Paint>);
@@ -76,14 +69,7 @@ impl Parse for Stroke {
         Ok(Stroke((inherit(Paint::parse))(s)?))
     }
 }
-impl Interpolate for Stroke {
-    fn linear(from: Self, to: Self, x: f32) -> Self {
-        Stroke(Interpolate::linear(from.0, to.0, x))
-    }
-    fn add(a: Self, b: Self) -> Self {
-        Stroke(Interpolate::add(a.0, b.0))
-    }
-}
+wrap_option_iterpolate!(Stroke);
 
 impl Attrs {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Attrs, Error> {
@@ -94,6 +80,7 @@ impl Attrs {
         for n in node.children().filter(|n| n.is_element()) {
             match n.tag_name().name() {
                 "animate" | "animateColor" => attrs.parse_animate(&n)?,
+                "animateTransform" => attrs.transform.parse_animate_transform(&n)?,
                 _ => {}
             }
         }
@@ -124,7 +111,7 @@ impl Attrs {
             "stroke-miterlimit" => {},
             "stroke-opacity" => self.stroke_opacity = Some(opacity(val)?),
             "stroke-dasharray" => {},
-            "transform" => self.transform = transform_list(val)?,
+            "transform" => self.transform = Transform::new(transform_list(val)?),
             "paint-order" => {},
             "display" => self.display = display(val)?,
             "filter" => self.filter = Some(iri(val)?),

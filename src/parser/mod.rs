@@ -7,7 +7,7 @@ use nom::{
     bytes::complete::{tag},
     branch::alt,
     multi::many1_count,
-    combinator::{map, map_res, recognize},
+    combinator::{map, map_res, recognize, opt},
     number::complete::float,
     IResult,
 };
@@ -75,18 +75,41 @@ fn list_sep(i: &str) -> IResult<&str, &str, ()> {
         space1
     )))(i)
 }
+fn number_list_4_(i: &str) -> IResult<&str, [f32; 4], ()> {
+    let (i, a) = float(i)?;
+    let (i, _) = list_sep(i)?;
+    let (i, b) = float(i)?;
+    let (i, _) = list_sep(i)?;
+    let (i, c) = float(i)?;
+    let (i, _) = list_sep(i)?;
+    let (i, d) = float(i)?;
+    Ok((i, [a, b, c, d]))
+}
+
 pub fn number_list_4(s: &str) -> Result<[f32; 4], Error> {
-    match (|i| -> IResult<&str, [f32; 4], ()> {
-        let (i, a) = float(i)?;
-        let (i, _) = list_sep(i)?;
-        let (i, b) = float(i)?;
-        let (i, _) = list_sep(i)?;
-        let (i, c) = float(i)?;
-        let (i, _) = list_sep(i)?;
-        let (i, d) = float(i)?;
-        Ok((i, [a, b, c, d]))
-    })(s) {
+    match number_list_4_(s) {
         Ok((_, list)) => Ok(list),
+        Err(_) => Err(Error::InvalidAttributeValue(s.into()))
+    }
+}
+
+fn one_or_two_numbers_(i: &str) -> IResult<&str, (f32, Option<f32>), ()> {
+    tuple((float, opt(preceded(list_sep, float))))(i)
+}
+
+pub fn one_or_two_numbers(s: &str) -> Result<(f32, Option<f32>), Error> {
+    match one_or_two_numbers_(s) {
+        Ok((_, val)) => Ok(val),
+        Err(_) => Err(Error::InvalidAttributeValue(s.into()))
+    }
+}
+
+fn one_or_three_numbers_(i: &str) -> IResult<&str, (f32, Option<(f32, f32)>), ()> {
+    tuple((float, opt(tuple((preceded(list_sep, float), preceded(list_sep, float))))))(i)
+}
+pub fn one_or_three_numbers(s: &str) -> Result<(f32, Option<(f32, f32)>), Error> {
+    match one_or_three_numbers_(s) {
+        Ok((_, val)) => Ok(val),
         Err(_) => Err(Error::InvalidAttributeValue(s.into()))
     }
 }

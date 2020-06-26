@@ -7,31 +7,31 @@ use pathfinder_content::outline::{Outline, Contour};
 
 #[derive(Debug)]
 pub struct TagEllipse {
-    center: (Length, Length),
-    radius: (Length, Length),
+    center: Vector,
+    radius: Vector,
     attrs: Attrs,
     pub id: Option<String>,
 }
 impl Tag for TagEllipse {
     fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
-        if (self.radius.0.num == 0.) | (self.radius.1.num == 0.) | (!self.attrs.display) {
+        if !self.radius.has_area() || !self.attrs.display {
             return None;
         }
         let options = options.apply(&self.attrs);
-        let center = options.resolve_point(self.center);
-        let radius = options.resolve_point(self.radius);
+        let center = options.resolve_vector(self.center);
+        let radius = options.resolve_vector(self.radius);
 
         options.bounds(RectF::new(center - radius, radius * 2.0))
     }
 
     fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        if (self.radius.0.num == 0.) | (self.radius.1.num == 0.) | (!self.attrs.display) {
+        if !self.radius.has_area() || !self.attrs.display {
             return;
         }
         let options = options.apply(&self.attrs);
 
-        let center = options.resolve_point(self.center);
-        let radius = options.resolve_point(self.radius);
+        let center = options.resolve_vector(self.center);
+        let radius = options.resolve_vector(self.radius);
 
         let mut contour = Contour::with_capacity(4);
         let tr = Transform2F::from_translation(center) * Transform2F::from_scale(radius);
@@ -65,8 +65,8 @@ impl TagEllipse {
         let id = node.attribute("id").map(|s| s.into());
 
         Ok(TagEllipse {
-            center: (cx, cy),
-            radius: (rx, ry),
+            center: Vector(cx, cy),
+            radius: Vector(rx, ry),
             attrs: Attrs::parse(node)?,
             id,
         })

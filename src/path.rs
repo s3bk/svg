@@ -19,7 +19,7 @@ fn reflect_on(last: Option<Vector2F>, point: Vector2F) -> Vector2F {
 #[derive(Debug)]
 pub struct TagClipPath {
     pub id: Option<String>,
-    pub outline: Outline,
+    paths: Vec<TagPath>,
 }
 impl Tag for TagClipPath {
     fn id(&self) -> Option<&str> {
@@ -28,20 +28,27 @@ impl Tag for TagClipPath {
 }
 impl TagClipPath {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagClipPath, Error> {
-        let mut outline = Outline::new();
         let id = node.attribute("id").map(From::from);
+        let mut paths = Vec::with_capacity(1);
         for elem in node.children().filter(|n| n.is_element()) {
             match elem.tag_name().name() {
                 "path" => {
-                    let path = TagPath::parse(&elem)?;
-                    outline.merge(path.outline.transformed(&path.attrs.transform));
+                    paths.push(TagPath::parse(&elem)?);
                 },
                 _ => {
                     dbg!(elem);
                 }
             }
         }
-        Ok(TagClipPath { id, outline })
+        Ok(TagClipPath { id, paths })
+    }
+    pub fn build(&self, options: &DrawOptions) -> Outline {
+        let mut outline = Outline::new();
+        for path in &self.paths {
+            let tr = options.transform * path.attrs.transform.get(options);
+            outline.merge(path.outline.clone().transformed(&tr));
+        }
+        outline
     }
 }
 

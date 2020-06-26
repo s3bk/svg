@@ -116,12 +116,12 @@ impl TagUse {
     }
     fn content_transform<'a>(&self, options: &DrawOptions<'a>, item: &Item) -> DrawOptions<'a> {
         let mut options = options.apply(&self.attrs);
-        let pos = options.resolve_point((self.x.unwrap_or_default(), self.y.unwrap_or_default()));
+        let pos = options.resolve_vector(Vector(self.x.unwrap_or_default(), self.y.unwrap_or_default()));
         options.transform(Transform2F::from_translation(pos));
         match *item {
             Item::Symbol(TagSymbol { view_box: Some(ref view_box), .. }) |
             Item::Svg(TagSvg { view_box: Some(ref view_box), .. }) => {
-                let size = (
+                let size = Vector(
                     self.width.unwrap_or(view_box.width),
                     self.height.unwrap_or(view_box.height)
                 );

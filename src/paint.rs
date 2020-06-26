@@ -29,11 +29,16 @@ impl Parse for Color {
     }
 }
 impl Interpolate for Color {
-    fn linear(from: Self, to: Self, x: f32) -> Self {
-        Color(to.0 * x + from.0 * (1.0 - x))
+    fn lerp(self, to: Self, x: f32) -> Self {
+        Color(to.0 * x + self.0 * (1.0 - x))
     }
-    fn add(a: Self, b: Self) -> Self {
-        Color(a.0 + b.0)
+    fn scale(self, x: f32) -> Self {
+        Color(self.0 * x)
+    }
+}
+impl Compose for Color {
+    fn compose(self, rhs: Self) -> Self {
+        Color(self.0 + rhs.0)
     }
 }
 
@@ -63,16 +68,24 @@ impl Parse for Paint {
     }
 }
 impl Interpolate for Paint {
-    fn linear(from: Self, to: Self, x: f32) -> Self {
-        match (from, to) {
-            (Paint::Color(a), Paint::Color(b)) => Paint::Color(Interpolate::linear(a, b, x)),
+    fn lerp(self, to: Self, x: f32) -> Self {
+        match (self, to) {
+            (Paint::Color(a), Paint::Color(b)) => Paint::Color(a.lerp(b, x)),
             (Paint::None, b) => b,
             (a, _) => a
         }
     }
-    fn add(a: Self, b: Self) -> Self {
-        match (a, b) {
-            (Paint::Color(a), Paint::Color(b)) => Paint::Color(Interpolate::add(a, b)),
+    fn scale(self, x: f32) -> Self {
+        match self {
+            Paint::Color(a) => Paint::Color(a.scale(x)),
+            p => p
+        }
+    }
+}
+impl Compose for Paint {
+    fn compose(self, rhs: Self) -> Self {
+        match (self, rhs) {
+            (Paint::Color(a), Paint::Color(b)) => Paint::Color(a.compose(b)),
             (Paint::None, b) => b,
             (a, _) => a
         }

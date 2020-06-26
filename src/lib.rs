@@ -8,6 +8,9 @@ use pathfinder_renderer::{
 };
 use std::sync::Arc;
 
+#[macro_use]
+mod macros;
+
 mod prelude;
 
 #[macro_use] mod util;

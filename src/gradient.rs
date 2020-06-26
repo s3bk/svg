@@ -141,8 +141,8 @@ fn length_or_percent(a: Option<Length>, default: f64) -> Length {
         None => Length::new(default, LengthUnit::Percent)
     }
 }
-fn point_or_percent(a: (Option<Length>, Option<Length>), default: (f64, f64)) -> (Length, Length) {
-    (
+fn point_or_percent(a: (Option<Length>, Option<Length>), default: (f64, f64)) -> Vector {
+    Vector(
         length_or_percent(a.0, default.0),
         length_or_percent(a.1, default.1),
     )
@@ -219,8 +219,8 @@ impl<'a> PartialLinearGradient<'a> {
         let gradient_transform = self.gradient_transform.unwrap_or_default();
 
         let mut gradient = Gradient::linear_from_points(
-            options.resolve_point(from),
-            options.resolve_point(to)
+            options.resolve_vector(from),
+            options.resolve_vector(to)
         );
         for stop in self.stops {
             gradient.add_color_stop(stop.color_u(opacity), stop.offset);
@@ -233,16 +233,16 @@ impl<'a> PartialLinearGradient<'a> {
 impl<'a> PartialRadialGradient<'a> {
     fn build(&self, options: &DrawOptions, opacity: f32) -> Gradient {
         let center = point_or_percent(self.center, (50., 50.));
-        let focus = (self.focus.0.unwrap_or(center.0), self.focus.1.unwrap_or(center.1));
+        let focus = Vector(self.focus.0.unwrap_or(center.0), self.focus.1.unwrap_or(center.1));
         let radius = length_or_percent(self.radius, 50.);
         let gradient_transform = self.gradient_transform.unwrap_or_default();
 
         let mut gradient = Gradient::radial(
             LineSegment2F::new(
-                options.resolve_point(focus),
-                options.resolve_point(center)
+                options.resolve_vector(focus),
+                options.resolve_vector(center)
             ),
-            F32x2::new(0.0, options.resolve_length(radius))
+            F32x2::new(0.0, options.resolve_length(radius).unwrap())
         );
         for stop in self.stops {
             gradient.add_color_stop(stop.color_u(opacity), stop.offset);

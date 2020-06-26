@@ -134,8 +134,8 @@ impl<'a> DrawOptions<'a> {
     }
     fn clip_path_id(&self, scene: &mut Scene) -> Option<ClipPathId> {
         if let ClipPathAttr::Ref(ref id) = self.clip_path {
-            if let Some(Item::ClipPath(TagClipPath { outline, .. })) = self.ctx.resolve(id).map(|t| &**t) {
-                let outline = outline.clone().transformed(&self.transform);
+            if let Some(Item::ClipPath(p)) = self.ctx.resolve(id).map(|t| &**t) {
+                let outline = p.build(self);
                 //self.debug_outline(scene, &outline, ColorU::new(0, 255, 0, 50));
 
                 let mut clip_path = ClipPath::new(outline);
@@ -182,7 +182,7 @@ impl<'a> DrawOptions<'a> {
             clip_path: attrs.clip_path.clone().unwrap_or_else(|| self.clip_path.clone()),
             clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
             opacity: self.opacity * attrs.opacity.unwrap_or(1.0),
-            transform: self.transform * attrs.transform,
+            transform: self.transform * attrs.transform.get(self),
             fill: attrs.fill.get(self),
             fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
             fill_opacity: attrs.fill_opacity.unwrap_or(self.fill_opacity),
@@ -197,7 +197,7 @@ impl<'a> DrawOptions<'a> {
         debug!("stroke {:?} + {:?} -> {:?}", self.stroke, attrs.stroke, new.stroke);
         new
     }
-    pub fn resolve_length(&self, length: Length) -> f32 {
+    pub fn resolve_length(&self, length: Length) -> Option<f32> {
         let scale = match length.unit {
             LengthUnit::None => 1.0,
             LengthUnit::Cm => self.ctx.dpi * (1.0 / 2.54),
@@ -206,25 +206,43 @@ impl<'a> DrawOptions<'a> {
             LengthUnit::In => self.ctx.dpi,
             LengthUnit::Mm => self.ctx.dpi * (1.0 / 25.4),
             LengthUnit::Pc => unimplemented!(),
-            LengthUnit::Percent => unimplemented!(),
+            LengthUnit::Percent => return None,
             LengthUnit::Pt => self.ctx.dpi * (1.0 / 75.),
             LengthUnit::Px => 1.0
         };
-        length.num as f32 * scale
+        Some(length.num as f32 * scale)
     }
-    pub fn resolve_point(&self, (x, y): (Length, Length)) -> Vector2F {
-        let x = self.resolve_length(x);
-        let y = self.resolve_length(y);
+    pub fn resolve_length_along(&self, length: Length, axis: Axis) -> Option<f32> {
+        let scale = match length.unit {
+            LengthUnit::None => 1.0,
+            LengthUnit::Cm => self.ctx.dpi * (1.0 / 2.54),
+            LengthUnit::Em => unimplemented!(),
+            LengthUnit::Ex => unimplemented!(),
+            LengthUnit::In => self.ctx.dpi,
+            LengthUnit::Mm => self.ctx.dpi * (1.0 / 25.4),
+            LengthUnit::Pc => unimplemented!(),
+            LengthUnit::Percent => return match axis {
+                Axis::X => self.view_box.map(|r| r.width()),
+                Axis::Y => self.view_box.map(|r| r.height()),
+            },
+            LengthUnit::Pt => self.ctx.dpi * (1.0 / 75.),
+            LengthUnit::Px => 1.0
+        };
+        Some(length.num as f32 * scale)
+    }
+    pub fn resolve_vector(&self, v: Vector) -> Vector2F {
+        let x = self.resolve_length_along(v.0, Axis::X).unwrap();
+        let y = self.resolve_length_along(v.1, Axis::Y).unwrap();
         vec2f(x, y)
     }
 
     pub fn resolve_rect(&self, rect: &Rect) -> RectF {
-        RectF::new(self.resolve_point(rect.origin()), self.resolve_point(rect.size()))
+        RectF::new(self.resolve_vector(rect.origin()), self.resolve_vector(rect.size()))
     }
 
-    pub fn apply_viewbox(&mut self, size: (Length, Length), view_box: &Rect) {
+    pub fn apply_viewbox(&mut self, size: Vector, view_box: &Rect) {
         let view_box = self.resolve_rect(view_box);
-        let size = self.resolve_point(size);
+        let size = self.resolve_vector(size);
         self.transform = self.transform
             * Transform2F::from_scale(view_box.size().inv() * size)
             * Transform2F::from_translation(-view_box.origin());
@@ -232,4 +250,3 @@ impl<'a> DrawOptions<'a> {
         self.view_box = Some(view_box);
     }
 }
-

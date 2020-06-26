@@ -62,11 +62,11 @@ impl TagRect {
 
 #[derive(Debug)]
 struct ValueVector {
-    x: Value<Length>,
-    y: Value<Length>
+    x: Value<LengthX>,
+    y: Value<LengthY>
 }
 impl ValueVector {
-    fn new(x: Value<Length>, y: Value<Length>) -> ValueVector {
+    fn new(x: Value<LengthX>, y: Value<LengthY>) -> ValueVector {
         ValueVector { x, y }
     }
     fn get(&self, options: &DrawOptions) -> Vector2F {

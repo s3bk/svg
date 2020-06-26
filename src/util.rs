@@ -64,11 +64,22 @@ macro_rules! get_ref_or_return {
     );
 }
 
-pub const DEG_TO_RAD: f32 = std::f32::consts::PI / 180.;
+const DEG_TO_RAD: f32 = std::f32::consts::PI / 180.;
 
 #[inline]
 pub fn vec(x: f64, y: f64) -> Vector2F {
     Vector2F::new(x as f32, y as f32)
+}
+
+pub fn skew_x(angle: f32) -> Transform2F {
+    Transform2F::row_major(1.0, angle.tan() as f32, 0.0, 0.0, 1.0, 0.0)
+}
+pub fn skew_y(angle: f32) -> Transform2F {
+    Transform2F::row_major(1.0, 0.0, 0.0, angle.tan() as f32, 1.0, 0.0)
+}
+
+pub fn deg2rad(deg: f32) -> f32 {
+    deg as f32 * DEG_TO_RAD
 }
 
 pub fn transform_list(value: &str) -> Result<Transform2F, Error> {
@@ -78,15 +89,27 @@ pub fn transform_list(value: &str) -> Result<Transform2F, Error> {
             TransformListToken::Matrix { a, b, c, d, e, f } => Transform2F::row_major(a as f32, c as f32, e as f32, b as f32, d as f32, f as f32),
             TransformListToken::Translate { tx, ty } => Transform2F::from_translation(vec(tx, ty)),
             TransformListToken::Scale { sx, sy } => Transform2F::from_scale(vec(sx, sy)),
-            TransformListToken::Rotate { angle } => Transform2F::from_rotation(angle as f32 * DEG_TO_RAD),
-            TransformListToken::SkewX { angle } => Transform2F::row_major(1.0, angle.tan() as f32, 0.0, 0.0, 1.0, 0.0),
-            TransformListToken::SkewY { angle} => Transform2F::row_major(1.0, 0.0, 0.0, angle.tan() as f32, 1.0, 0.0),
+            TransformListToken::Rotate { angle } => Transform2F::from_rotation(deg2rad(angle as f32)),
+            TransformListToken::SkewX { angle } => skew_x(deg2rad(angle as f32)),
+            TransformListToken::SkewY { angle} => skew_y(deg2rad(angle as f32)),
         };
         transform = transform * tr;
     }
     Ok(transform)
 }
 
+#[derive(Copy, Clone, Debug, Default)]
+pub struct LengthX(pub Length);
+#[derive(Copy, Clone, Debug, Default)]
+pub struct LengthY(pub Length);
+
+#[derive(Copy, Clone, Debug)]
+pub struct Vector(pub Length, pub Length);
+impl Vector {
+    pub fn has_area(&self) -> bool {
+        self.0.num != 0.0 && self.1.num != 0.0
+    }
+}
 
 #[derive(Debug)]
 pub struct Rect {
@@ -105,11 +128,11 @@ impl Rect {
         }
     }
 
-    pub fn origin(&self) -> (Length, Length) {
-        (self.x, self.y)
+    pub fn origin(&self) -> Vector {
+        Vector(self.x, self.y)
     }
-    pub fn size(&self) -> (Length, Length) {
-        (self.width, self.height)
+    pub fn size(&self) -> Vector {
+        Vector(self.width, self.height)
     }
 
     pub fn parse(s: &str) -> Result<Rect, Error> {
@@ -180,9 +203,24 @@ pub trait Parse: Sized {
     fn parse(s: &str) -> Result<Self, Error>;
 }
 
+impl Parse for f32 {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Ok(f32::from_str(s)?)
+    }
+}
 impl Parse for Length {
     fn parse(s: &str) -> Result<Self, Error> {
         Ok(Length::from_str(s)?)
+    }
+}
+impl Parse for LengthX {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Length::parse(s).map(LengthX)
+    }
+}
+impl Parse for LengthY {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Length::parse(s).map(LengthY)
     }
 }
 
@@ -193,9 +231,22 @@ pub fn get_attr<'a, 'i>(node: &Node<'a, 'i>, attr: &str) -> Result<&'a str, Erro
     }
 }
 
+pub fn parse_attr<'a, 'i, T: Parse>(node: &Node<'a, 'i>, attr: &str) -> Result<T, Error> {
+    match node.attribute(attr) {
+        Some(val) => T::parse(val),
+        None => Err(Error::MissingAttribute(attr.into()))
+    }
+}
+
 pub fn parse_attr_or<'a, 'i, T: Parse>(node: &Node<'a, 'i>, attr: &str, default: T) -> Result<T, Error> {
     match node.attribute(attr) {
         Some(val) => T::parse(val),
         None => Ok(default)
     }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Axis {
+    X,
+    Y
 }
