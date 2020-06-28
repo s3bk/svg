@@ -36,6 +36,16 @@ macro_rules! wrap_interpolate {
         }
     )
 }
+macro_rules! wrap_compose {
+    ($name:ident) => (
+        impl Compose for $name {
+            #[inline]
+            fn compose(self, rhs: Self) -> Self {
+                $name(self.0.compose(rhs.0))
+            }
+        }
+    )
+}
 macro_rules! wrap_option_iterpolate {
     ($name:ident) => {
         impl Interpolate for $name {

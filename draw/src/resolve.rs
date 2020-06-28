@@ -6,9 +6,8 @@ where T: Resolve, T::Output: Interpolate + Into<U>, U: Compose
 {
     match (animate.additive, animate.resolve(options)) {
         (Additive::Sum, Some(val)) => base.compose(val.into()),
-        (Additive::Sum, None) => base,
         (Additive::Replace, Some(val)) => val.into(),
-        (Additive::Replace, None) => base
+        (_, None) => base,
     }
 }
 impl<T> Resolve for Value<T> where T: Resolve + Parse + Clone, T::Output: Interpolate + Compose {

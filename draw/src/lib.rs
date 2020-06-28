@@ -62,6 +62,14 @@ pub trait Interpolate: Clone {
 pub trait Compose {
     fn compose(self, rhs: Self) -> Self;
 }
+impl<T: Compose> Compose for Option<T> {
+    fn compose(self, rhs: Self) -> Self {
+        match (self, rhs) {
+            (Some(a), Some(b)) => Some(a.compose(b)),
+            (a, b) => a.or(b)
+        }
+    }
+}
 
 macro_rules! draw_items {
     ($name:ident { $($variant:ident($data:ty), )* }) => {

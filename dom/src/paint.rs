@@ -11,9 +11,9 @@ pub struct Color {
 impl Color {
     pub fn from_srgb_u8(r: u8, g: u8, b: u8) -> Color {
         Color {
-            red: r as f32 * 255.,
-            green: g as f32 * 255.,
-            blue: b as f32 * 255.
+            red: r as f32 * (1.0/255.),
+            green: g as f32 * (1.0/255.),
+            blue: b as f32 * (1.0/255.)
         }
     }
     pub fn black() -> Color {

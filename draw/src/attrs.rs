@@ -6,8 +6,6 @@ use pathfinder_content::{
 };
 use svgtypes::{Length, Color};
 
-
-
 wrap_option_iterpolate!(Fill);
 
 wrap_option_iterpolate!(Stroke);
