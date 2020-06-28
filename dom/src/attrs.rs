@@ -1,10 +1,9 @@
 use crate::prelude::*;
-use crate::animate::*;
 
 use pathfinder_content::{
     fill::{FillRule}
 };
-use svgtypes::{Length, Color};
+use svgtypes::{Length};
 
 #[derive(Debug)]
 pub struct Attrs {
@@ -40,37 +39,21 @@ impl Default for Attrs {
     }
 }
 
-
 #[derive(Debug, Clone)]
-pub struct Fill(Option<Paint>);
-impl Resolve for Fill {
-    type Output = Paint;
-    fn resolve(&self, options: &DrawOptions) -> Self::Output {
-        self.0.clone().unwrap_or_else(|| options.fill.clone())
-    }
-}
+pub struct Fill(pub Option<Paint>);
 impl Parse for Fill {
     fn parse(s: &str) -> Result<Self, Error> {
         Ok(Fill((inherit(Paint::parse))(s)?))
     }
 }
-wrap_option_iterpolate!(Fill);
 
 #[derive(Debug, Clone)]
-pub struct Stroke(Option<Paint>);
-impl Resolve for Stroke {
-    type Output = Paint;
-    fn resolve(&self, options: &DrawOptions) -> Self::Output {
-        self.0.clone().unwrap_or_else(|| options.stroke.clone())
-    }
-}
+pub struct Stroke(pub Option<Paint>);
 impl Parse for Stroke {
     fn parse(s: &str) -> Result<Self, Error> {
         Ok(Stroke((inherit(Paint::parse))(s)?))
     }
 }
-wrap_option_iterpolate!(Stroke);
-
 impl Attrs {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Attrs, Error> {
         let mut attrs = Attrs::default();

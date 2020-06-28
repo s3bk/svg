@@ -1,0 +1,31 @@
+[package]
+name = "svg_draw"
+version = "0.1.0"
+authors = ["Sebastian K <s3bk@protonmail.com>"]
+edition = "2018"
+
+[features]
+debug = ["text"]
+text = ["font", "unicode-bidi", "lazy_static"]
+default = ["text"]
+
+[dependencies]
+svg_dom = { path = "../dom" }
+svgtypes = "0.5"
+log = "0.4.8"
+itertools = "0.9.0"
+libflate = "1.0.1"
+pathfinder_geometry = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_content = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_renderer = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_color = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_simd = { git = "https://github.com/s3bk/pathfinder/" }
+font = { path = "../../font", optional = true }
+lazy_static = { version = "1.4.0", optional = true }
+palette = "0.5.0"
+nom = "5.1.2"
+unicode-bidi = { version = "*", optional = true }
+
+[dev-dependencies]
+pathfinder_view = { git = "https://github.com/s3bk/pathfinder_view/" }
+env_logger = "*"

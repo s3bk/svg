@@ -1,6 +1,4 @@
 use crate::prelude::*;
-use crate::{Svg, Paint, ClipPathAttr, TagClipPath};
-use crate::animate::{Time};
 use pathfinder_content::{
     outline::{Outline},
     stroke::{OutlineStrokeToFill, StrokeStyle, LineCap, LineJoin},
@@ -11,8 +9,9 @@ use pathfinder_renderer::{
     paint::Paint as PaPaint,
 };
 use pathfinder_color::ColorU;
-use svgtypes::{Length, Color};
+use svgtypes::{Length};
 use std::sync::Arc;
+use crate::gradient::BuildGradient;
 
 #[derive(Clone, Debug)]
 pub struct DrawContext<'a> {
@@ -135,8 +134,7 @@ impl<'a> DrawOptions<'a> {
     fn clip_path_id(&self, scene: &mut Scene) -> Option<ClipPathId> {
         if let ClipPathAttr::Ref(ref id) = self.clip_path {
             if let Some(Item::ClipPath(p)) = self.ctx.resolve(id).map(|t| &**t) {
-                let outline = p.build(self);
-                //self.debug_outline(scene, &outline, ColorU::new(0, 255, 0, 50));
+                let outline = p.resolve(self);
 
                 let mut clip_path = ClipPath::new(outline);
                 clip_path.set_fill_rule(self.clip_rule);
@@ -182,11 +180,11 @@ impl<'a> DrawOptions<'a> {
             clip_path: attrs.clip_path.clone().unwrap_or_else(|| self.clip_path.clone()),
             clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
             opacity: self.opacity * attrs.opacity.unwrap_or(1.0),
-            transform: self.transform * attrs.transform.get(self),
-            fill: attrs.fill.get(self),
+            transform: self.transform * attrs.transform.resolve(self),
+            fill: attrs.fill.resolve(self),
             fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
             fill_opacity: attrs.fill_opacity.unwrap_or(self.fill_opacity),
-            stroke: attrs.stroke.get(self),
+            stroke: attrs.stroke.resolve(self),
             stroke_style,
             stroke_opacity: attrs.stroke_opacity.unwrap_or(self.stroke_opacity),
             #[cfg(feature="debug")]

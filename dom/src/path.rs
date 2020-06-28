@@ -19,21 +19,21 @@ fn reflect_on(last: Option<Vector2F>, point: Vector2F) -> Vector2F {
 #[derive(Debug)]
 pub struct TagClipPath {
     pub id: Option<String>,
-    paths: Vec<TagPath>,
+    pub paths: Vec<TagPath>,
 }
 impl Tag for TagClipPath {
     fn id(&self) -> Option<&str> {
         self.id.as_ref().map(|s| s.as_str())
     }
 }
-impl TagClipPath {
-    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagClipPath, Error> {
+impl ParseNode for TagClipPath {
+    fn parse_node(node: &Node) -> Result<TagClipPath, Error> {
         let id = node.attribute("id").map(From::from);
         let mut paths = Vec::with_capacity(1);
         for elem in node.children().filter(|n| n.is_element()) {
             match elem.tag_name().name() {
                 "path" => {
-                    paths.push(TagPath::parse(&elem)?);
+                    paths.push(TagPath::parse_node(&elem)?);
                 },
                 _ => {
                     dbg!(elem);
@@ -42,60 +42,29 @@ impl TagClipPath {
         }
         Ok(TagClipPath { id, paths })
     }
-    pub fn build(&self, options: &DrawOptions) -> Outline {
-        let mut outline = Outline::new();
-        for path in &self.paths {
-            let tr = options.transform * path.attrs.transform.get(options);
-            outline.merge(path.outline.clone().transformed(&tr));
-        }
-        outline
-    }
 }
 
 #[derive(Debug)]
 pub struct TagPath {
-    outline: Outline,
-    attrs: Attrs,
-    debug: DebugInfo,
+    pub outline: Outline,
+    pub attrs: Attrs,
     pub id: Option<String>,
 }
 impl Tag for TagPath {
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
-        if self.attrs.display && self.outline.len() > 0 {
-            let options = options.apply(&self.attrs);
-            options.bounds(self.outline.bounds())
-        } else {
-            None
-        }
-    }
-    fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let options = options.apply(&self.attrs);
-        options.draw(scene, &self.outline);
-
-        #[cfg(feature="debug")]
-        if options.debug {
-            let mut options = options.clone();
-            options.fill = Some(Paint::black());
-            options.stroke = None;
-            self.debug.draw(scene, &options);
-        }
-    }
     fn id(&self) -> Option<&str> {
         self.id.as_ref().map(|s| s.as_str())
     }
 }
-impl TagPath {
-    pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<TagPath, Error> {
+impl ParseNode for TagPath {
+    fn parse_node(node: &Node) -> Result<TagPath, Error> {
         use std::f32::consts::PI;
         use svgtypes::{PathParser, PathSegment};
 
-        let mut debug = DebugInfo::new();
         let mut contour = Contour::new();
         let mut outline = Outline::new();
         let id = node.attribute("id").map(|s| s.into());
         
         if let Some(d) = node.attribute("d") {
-            //println!("path id={:?} d={:?}", id.unwrap_or(""), d);
             let mut start = Vector2F::default();
             let mut last = Vector2F::default();
             let mut last_quadratic_control_point = None;
@@ -236,15 +205,9 @@ impl TagPath {
                 outline.push_contour(contour.clone());
                 contour.clear();
             }
-            //println!(" -> {:?}", outline);
         }
 
         let attrs = Attrs::parse(node)?;
-        Ok(TagPath { id, outline, attrs, debug })
+        Ok(TagPath { id, outline, attrs })
     }
-}
-
-fn print_matrix(mat: Matrix2x2F) {
-    println!("⎛ {:6.3}  {:6.3} ⎞", mat.m11(), mat.m12());
-    println!("⎝ {:6.3}  {:6.3} ⎠", mat.m21(), mat.m22());
 }

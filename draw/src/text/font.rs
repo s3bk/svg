@@ -11,7 +11,7 @@ use pathfinder_geometry::{
 pub type FontArc = Arc<dyn Font + Sync + Send>;
 
 lazy_static! {
-    static ref LATIN_MODERN: FontArc = Arc::from(font::parse(include_bytes!("../resources/latinmodern-math.otf")));
+    static ref LATIN_MODERN: FontArc = Arc::from(font::parse(include_bytes!("../../../resources/latinmodern-math.otf")));
 }
 
 pub struct FontCollection {
@@ -80,4 +80,18 @@ impl FontCollection {
 
         outline
     }
+}
+
+enum GlyphData {
+    Outline(Outline),
+    
+}
+
+pub struct Glyph {
+    metrics: (),
+
+}
+
+pub struct Layout {
+
 }

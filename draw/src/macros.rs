@@ -1,4 +1,3 @@
-
 macro_rules! resolve_clone {
     ($name:ident) => (
         impl Resolve for $name {
@@ -51,4 +50,38 @@ macro_rules! wrap_option_iterpolate {
             }
         }
     };
+}
+macro_rules! get_or_return {
+    ($opt:expr) => (
+        match $opt {
+            Some(val) => val,
+            None => return
+        }
+    );
+    ($opt:expr, $msg:tt $(,$args:tt)*) => (
+        match $opt {
+            Some(val) => val,
+            None => {
+                println!($msg $(,$args)*);
+                return;
+            }
+        }
+    );
+}
+macro_rules! get_ref_or_return {
+    ($opt:expr) => (
+        match $opt {
+            Some(ref val) => val,
+            None => return
+        }
+    );
+    ($opt:expr, $msg:tt $(,$args:tt)*) => (
+        match $opt {
+            Some(ref val) => val,
+            None => {
+                println!($msg $(,$args)*);
+                return;
+            }
+        }
+    );
 }

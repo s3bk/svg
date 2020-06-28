@@ -7,19 +7,19 @@ use pathfinder_content::outline::{Outline, Contour};
 #[derive(Debug)]
 pub struct TagRect {
     //#[attr("x", "y", animate, default)]
-    pos: ValueVector,
+    pub pos: ValueVector,
     
     //#[attr("width", "height", animate, default)]
-    size: ValueVector,
+    pub size: ValueVector,
 
     //#[attr("rx", "ry", animate, default)]
-    radius: ValueVector,
+    pub radius: ValueVector,
 
     //#[attr("id")]
     pub id: Option<String>,
 
     //#[attr(other)]
-    attrs: Attrs,
+    pub attrs: Attrs,
 }
 /*
 impl TagRect {
@@ -60,64 +60,14 @@ impl TagRect {
     }
 }*/
 
-#[derive(Debug)]
-struct ValueVector {
-    x: Value<LengthX>,
-    y: Value<LengthY>
-}
-impl ValueVector {
-    fn new(x: Value<LengthX>, y: Value<LengthY>) -> ValueVector {
-        ValueVector { x, y }
-    }
-    fn get(&self, options: &DrawOptions) -> Vector2F {
-        let x = self.x.get(options);
-        let y = self.y.get(options);
-        vec2f(x, y)
-    }
-}
 
 impl Tag for TagRect {
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
-        if !self.attrs.display {
-            return None;
-        }
-        let options = options.apply(&self.attrs);
-
-        let size = self.size.get(&options);
-        if (size.x() == 0.) || (size.y() == 0.) {
-            return None;
-        }
-        
-        let origin = self.pos.get(&options);
-        options.bounds(RectF::new(origin, size))
-    }
-
-    fn compose_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        if !self.attrs.display {
-            return;
-        }
-        let options = options.apply(&self.attrs);
-
-        let size = self.size.get(&options);
-        if (size.x() == 0.) || (size.y() == 0.) {
-            return;
-        }
-        
-        let origin = self.pos.get(&options);
-        let radius = self.radius.get(&options);
-        let contour = Contour::from_rect_rounded(RectF::new(origin, size), radius);
-
-        let mut outline = Outline::with_capacity(1);
-        outline.push_contour(contour);
-
-        options.draw(scene, &outline);
-    }
     fn id(&self) -> Option<&str> {
         self.id.as_ref().map(|s| s.as_str())
     }
 }
-impl TagRect {
-    pub fn parse(node: &Node) -> Result<TagRect, Error> {
+impl ParseNode for TagRect {
+    fn parse_node(node: &Node) -> Result<TagRect, Error> {
         let mut x = Value::parse_or_default(node.attribute("x"))?;
         let mut y = Value::parse_or_default(node.attribute("y"))?;
         let mut width = Value::parse_or_default(node.attribute("width"))?;

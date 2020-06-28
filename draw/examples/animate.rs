@@ -1,10 +1,11 @@
 use pathfinder_view::{show, Config, Interactive, Context, Emitter};
 use pathfinder_renderer::scene::Scene;
-use pathfinder_svg::{Svg, DrawOptions, DrawContext, Time};
+use svg_dom::{Svg, Time};
+use svg_draw::{DrawSvg, DrawOptions, DrawContext};
 use std::time::Instant;
 
 struct AnimatedSvg {
-    svg: Svg,
+    svg: DrawSvg,
     start: Instant
 }
 
@@ -18,7 +19,7 @@ impl Interactive for AnimatedSvg {
         ctx.update_scene();
     }
     fn scene(&mut self, _: usize) -> Scene {
-        let ctx = DrawContext::new(&self.svg);
+        let ctx = self.svg.ctx();
         let mut options = DrawOptions::new(&ctx);
         options.time = Time::from_seconds(self.start.elapsed().as_secs_f64());
         self.svg.compose_with_options(&options)
@@ -34,7 +35,7 @@ fn main() {
     config.pan = false;
     let svg = Svg::from_data(&data).unwrap();
     show(AnimatedSvg {
-        svg,
+        svg: DrawSvg::new(svg),
         start: Instant::now()
     }, config)
 }
