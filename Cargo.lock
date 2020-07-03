@@ -426,30 +426,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "font"
-version = "0.1.0"
-dependencies = [
- "brotli-decompressor",
- "decorum",
- "encoding",
- "indexmap",
- "inflate",
- "itertools 0.8.2",
- "log",
- "nom",
- "pathfinder_builder",
- "pathfinder_color",
- "pathfinder_content",
- "pathfinder_geometry",
- "pathfinder_renderer",
- "rand",
- "slotmap",
- "svg_dom 0.1.0 (git+https://github.com/s3bk/pathfinder_svg)",
- "tuple",
- "walkdir",
-]
-
-[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1824,7 +1800,7 @@ name = "svg_draw"
 version = "0.1.0"
 dependencies = [
  "env_logger",
- "font 0.1.0 (git+https://github.com/pdf-rs/font)",
+ "font",
  "itertools 0.9.0",
  "lazy_static",
  "libflate",
@@ -1848,7 +1824,7 @@ dependencies = [
 name = "svg_text"
 version = "0.1.0"
 dependencies = [
- "font 0.1.0",
+ "font",
  "itertools 0.9.0",
  "pathfinder_content",
  "pathfinder_geometry",
