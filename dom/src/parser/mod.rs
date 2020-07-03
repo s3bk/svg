@@ -6,8 +6,8 @@ use nom::{
     character::complete::{none_of, space0, space1},
     bytes::complete::{tag},
     branch::alt,
-    multi::many1_count,
-    combinator::{map, map_res, recognize, opt},
+    multi::{many1_count, separated_nonempty_list},
+    combinator::{map, map_res, recognize, opt, all_consuming},
     number::complete::float,
     IResult,
 };
@@ -109,6 +109,19 @@ fn one_or_three_numbers_(i: &str) -> IResult<&str, (f32, Option<(f32, f32)>), ()
 }
 pub fn one_or_three_numbers(s: &str) -> Result<(f32, Option<(f32, f32)>), Error> {
     match one_or_three_numbers_(s) {
+        Ok((_, val)) => Ok(val),
+        Err(_) => Err(Error::InvalidAttributeValue(s.into()))
+    }
+}
+
+fn one_or_many<'a, O>(f: impl Fn(&'a str) -> IResult<&'a str, O, ()> + Copy) -> impl Fn(&'a str) -> IResult<&'a str, OneOrMany<O>, ()> {
+    alt((
+        map(all_consuming(f), |v| OneOrMany::One(v)),
+        map(separated_nonempty_list(list_sep, f), |v| OneOrMany::Many(v))
+    ))
+}
+pub fn one_or_many_f32(s: &str) -> Result<OneOrMany<f32>, Error> {
+    match (one_or_many(float))(s) {
         Ok((_, val)) => Ok(val),
         Err(_) => Err(Error::InvalidAttributeValue(s.into()))
     }

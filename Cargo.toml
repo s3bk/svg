@@ -2,7 +2,9 @@
 
 members = [
     "dom",
-    "draw"
+    "draw",
+    "text",
+    "derive",
 ]
 
 [patch.crates-io]

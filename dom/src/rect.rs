@@ -66,31 +66,21 @@ impl Tag for TagRect {
         self.id.as_ref().map(|s| s.as_str())
     }
 }
+
+
 impl ParseNode for TagRect {
     fn parse_node(node: &Node) -> Result<TagRect, Error> {
-        let mut x = Value::parse_or_default(node.attribute("x"))?;
-        let mut y = Value::parse_or_default(node.attribute("y"))?;
-        let mut width = Value::parse_or_default(node.attribute("width"))?;
-        let mut height = Value::parse_or_default(node.attribute("height"))?;
-        let mut rx = Value::parse_or_default(node.attribute("rx"))?;
-        let mut ry = Value::parse_or_default(node.attribute("ry"))?;
-        let id = node.attribute("id").map(|s| s.into());
-        let attrs = Attrs::parse(node)?;
+        parse!(node => {
+            anim x: Value<LengthX>,
+            anim y: Value<LengthY>,
+            anim height: Value<LengthY>,
+            anim width: Value<LengthX>,
+            anim rx: Value<LengthX>,
+            anim ry: Value<LengthY>,
+            var id,
+        });
 
-        for n in node.children().filter(|n| n.is_element()) {
-            match n.tag_name().name() {
-                "animate" | "animateColor" => match n.attribute("attributeName").unwrap() {
-                    "x" => x.parse_animate_node(&n)?,
-                    "y" => y.parse_animate_node(&n)?,
-                    "width" => width.parse_animate_node(&n)?,
-                    "height" => height.parse_animate_node(&n)?,
-                    "rx" => rx.parse_animate_node(&n)?,
-                    "ry" => ry.parse_animate_node(&n)?,
-                    _ => {}
-                }
-                _ => {}
-            }
-        }
+        let attrs = Attrs::parse(node)?;
         Ok(TagRect {
             pos: ValueVector::new(x, y),
             size: ValueVector::new(width, height),

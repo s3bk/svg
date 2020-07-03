@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ValueVector {
     pub x: Value<LengthX>,
     pub y: Value<LengthY>
@@ -35,5 +35,10 @@ impl<T: Parse> Parse for Value<T> {
 impl<T: Parse + Default> Value<T> {
     pub fn parse_or_default(s: Option<&str>) -> Result<Self, Error> {
         Ok(Value::new(s.map(T::parse).transpose()?.unwrap_or_default()))
+    }
+}
+impl<T: Default> Default for Value<T> {
+    fn default() -> Value<T> {
+        Value::new(T::default())
     }
 }

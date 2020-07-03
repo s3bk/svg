@@ -5,38 +5,22 @@ use pathfinder_content::{
 };
 use svgtypes::{Length};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Attrs {
     pub clip_path: Option<ClipPathAttr>,
     pub clip_rule: Option<FillRule>,
     pub transform: Transform,
-    pub opacity: Option<f32>,
+    pub opacity: Value<Option<f32>>,
     pub fill: Value<Fill>,
     pub fill_rule: Option<FillRule>,
-    pub fill_opacity: Option<f32>,
+    pub fill_opacity: Value<Option<f32>>,
     pub stroke: Value<Stroke>,
-    pub stroke_width: Option<Length>,
-    pub stroke_opacity: Option<f32>,
+    pub stroke_width: Value<Option<Length>>,
+    pub stroke_opacity: Value<Option<f32>>,
     pub display: bool,
     pub filter: Option<String>,
-}
-impl Default for Attrs {
-    fn default() -> Attrs {
-        Attrs {
-            clip_path: Some(ClipPathAttr::None),
-            clip_rule: Some(FillRule::Winding),
-            transform: Transform::default(),
-            opacity: Some(1.0),
-            fill: Value::new(Fill(None)),
-            fill_rule: Some(FillRule::Winding),
-            fill_opacity: Some(1.0),
-            stroke: Value::new(Stroke(None)),
-            stroke_width: Some(Length::new_number(1.0)),
-            stroke_opacity: Some(1.0),
-            display: true,
-            filter: None,
-        }
-    }
+    pub font_size: Value<Option<LengthY>>,
+    pub direction: Option<TextFlow>,
 }
 
 #[derive(Debug, Clone)]
@@ -56,71 +40,52 @@ impl Parse for Stroke {
 }
 impl Attrs {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Attrs, Error> {
-        let mut attrs = Attrs::default();
-        for attr in node.attributes() {
-            attrs.parse_entry(attr.name(), attr.value())?;
-        }
-        for n in node.children().filter(|n| n.is_element()) {
-            match n.tag_name().name() {
-                "animate" | "animateColor" => attrs.parse_animate(&n)?,
-                "animateTransform" => attrs.transform.parse_animate_transform(&n)?,
-                _ => {}
-            }
-        }
-        Ok(attrs)
-    }
-
-    fn parse_animate(&mut self, node: &Node) -> Result<(), Error> {
-        let key = node.attribute("attributeName").unwrap();
-        match key {
-            "fill" => self.fill.parse_animate_node(node),
-            "stroke" => self.stroke.parse_animate_node(node),
-            _ => Ok(())
-        }
-    }
-
-    fn parse_entry(&mut self, key: &str, val: &str) -> Result<(), Error> {
-        match key {
-            "clip-path" => self.clip_path = ClipPathAttr::parse(val)?,
-            "clip-rule" => self.clip_rule = fill_rule(val)?,
-            "opacity" => self.opacity = (inherit(opacity))(val)?,
-            "fill" => self.fill = Value::new(Fill((inherit(Paint::parse))(val)?)),
-            "fill-opacity" => self.fill_opacity = Some(opacity(val)?),
-            "fill-rule" => self.fill_rule = fill_rule(val)?,
-            "stroke" => self.stroke = Value::new(Stroke((inherit(Paint::parse))(val)?)),
-            "stroke-width" => self.stroke_width = Some(val.parse()?),
-            "stroke-linecap" => {},
-            "stroke-linejoin" => {},
-            "stroke-miterlimit" => {},
-            "stroke-opacity" => self.stroke_opacity = Some(opacity(val)?),
-            "stroke-dasharray" => {},
-            "transform" => self.transform = Transform::new(transform_list(val)?),
-            "paint-order" => {},
-            "display" => self.display = display(val)?,
-            "filter" => self.filter = Some(iri(val)?),
-            "style" => {
-                for (key, val) in style_list(val) {
-                    self.parse_entry(key, val)?;
-                }
-            }
-            _ => {
-                debug!("unhandled {}={}", key, val);
-            }
-        }
-        Ok(())
+        parse!(node => {
+            var clip_path: Option<ClipPathAttr> => ClipPathAttr::parse,
+            var clip_rule ("clip-rule"): Option<FillRule>,
+            anim transform: Transform,
+            anim opacity: Value<Option<f32>>,
+            anim fill: Value<Fill> = Value::new(Fill(None)),
+            var fill_rule ("fill-rule"): Option<FillRule> = Some(FillRule::Winding) => inherit(FillRule::parse),
+            anim fill_opacity: Value<Option<f32>>,
+            anim stroke: Value<Stroke> = Value::new(Stroke(None)),
+            anim stroke_width ("stroke-width"): Value<Option<Length>>,
+            anim stroke_opacity ("stroke-opacity"): Value<Option<f32>>,
+            var display: bool = true => parse_display,
+            var filter: Option<String>,
+            anim font_size ("font-size"): Value<Option<LengthY>>,
+            var direction: Option<TextFlow>,
+        });
+        Ok(Attrs {
+            clip_path,
+            clip_rule,
+            transform,
+            opacity,
+            fill,
+            fill_rule,
+            fill_opacity,
+            stroke,
+            stroke_width,
+            stroke_opacity,
+            display,
+            filter,
+            font_size,
+            direction,
+        })
     }
 }
 
-fn fill_rule(s: &str) -> Result<Option<FillRule>, Error> {
-    Ok(match s {
-        "nonzero" => Some(FillRule::Winding),
-        "evenodd" => Some(FillRule::EvenOdd),
-        "inherit" => None,
-        val => return Err(Error::InvalidAttributeValue(val.into()))
-    })
+impl Parse for FillRule {
+    fn parse(s: &str) -> Result<FillRule, Error> {
+        Ok(match s {
+            "nonzero" => FillRule::Winding,
+            "evenodd" => FillRule::EvenOdd,
+            val => return Err(Error::InvalidAttributeValue(val.into()))
+        })
+    }
 }
 
-fn display(s: &str) -> Result<bool, Error> {
+fn parse_display(s: &str) -> Result<bool, Error> {
     match s {
         "none" => Ok(false),
         "inline" => Ok(true),
@@ -148,5 +113,21 @@ fn iri(s: &str) -> Result<String, Error> {
         Ok(s[5 .. s.len() - 1].to_owned())
     } else {
         Err(Error::InvalidAttributeValue(s.into()))
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum TextFlow {
+    LeftToRight,
+    RightToLeft
+}
+
+impl Parse for TextFlow {
+    fn parse(s: &str) -> Result<TextFlow, Error> {
+        Ok(match s {
+            "ltr" => TextFlow::LeftToRight,
+            "rtl" => TextFlow::RightToLeft,
+            val => return Err(Error::InvalidAttributeValue(val.into()))
+        })
     }
 }

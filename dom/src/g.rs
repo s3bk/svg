@@ -54,26 +54,28 @@ impl ParseNode for TagSymbol {
 #[derive(Debug)]
 pub struct TagUse {
     pub attrs: Attrs,
-    pub x: Option<Length>,
-    pub y: Option<Length>,
-    pub width: Option<Length>,
-    pub height: Option<Length>,
+    pub pos: ValueVector,
+    pub width: Option<LengthX>,
+    pub height: Option<LengthY>,
     pub href: Option<String>,
     pub id: Option<String>,
 }
 
 impl ParseNode for TagUse {
     fn parse_node(node: &Node) -> Result<TagUse, Error> {
-        let x = node.attribute("x").map(length).transpose()?;
-        let y = node.attribute("y").map(length).transpose()?;
-        let width = node.attribute("width").map(length).transpose()?;
-        let height = node.attribute("height").map(length).transpose()?;
+        parse!(node => {
+            anim x: Value<LengthX>,
+            anim y: Value<LengthY>,
+            var width: Option<LengthX>,
+            var height: Option<LengthY>,
+            var id,
+        });
+        
         let href = href(node);
         let attrs = Attrs::parse(node)?;
-        let id = node.attribute("id").map(|s| s.into());
 
         Ok(TagUse {
-            x, y, width, height, attrs, href, id,
+            pos: ValueVector::new(x, y), width, height, attrs, href, id,
         })
     }
 }

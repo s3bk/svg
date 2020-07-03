@@ -12,6 +12,7 @@ use pathfinder_color::ColorU;
 use svgtypes::{Length};
 use std::sync::Arc;
 use crate::gradient::BuildGradient;
+use crate::text::FontCache;
 
 #[derive(Clone, Debug)]
 pub struct DrawContext<'a> {
@@ -23,6 +24,8 @@ pub struct DrawContext<'a> {
     pub debug: bool,
 
     pub dpi: f32,
+
+    pub font_cache: FontCache,
 }
 impl<'a> DrawContext<'a> {
     pub fn new(svg: &'a Svg) -> Self {
@@ -34,6 +37,8 @@ impl<'a> DrawContext<'a> {
             debug_font: Arc::new(FontCollection::debug()),
             #[cfg(feature="debug")]
             debug: false,
+
+            font_cache: FontCache::new(),
         }
     }
     pub fn resolve(&self, id: &str) -> Option<&Arc<Item>> {
@@ -70,6 +75,9 @@ pub struct DrawOptions<'a> {
     pub view_box: Option<RectF>,
 
     pub time: Time,
+
+    pub font_size: f32,
+    pub direction: TextFlow,
 }
 impl<'a> DrawOptions<'a> {
     pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {
@@ -91,6 +99,8 @@ impl<'a> DrawOptions<'a> {
             clip_rule: FillRule::EvenOdd,
             view_box: None,
             time: Time::start(),
+            font_size: 20.,
+            direction: TextFlow::LeftToRight,
         }
     }
     pub fn bounds(&self, rect: RectF) -> Option<RectF> {
@@ -146,10 +156,13 @@ impl<'a> DrawOptions<'a> {
         None
     }
     pub fn draw(&self, scene: &mut Scene, path: &Outline) {
+        self.draw_transformed(scene, path, Transform2F::default());
+    }
+    pub fn draw_transformed(&self, scene: &mut Scene, path: &Outline, transform: Transform2F) {
         let clip_path_id = self.clip_path_id(scene);
-        
+        let tr = self.transform * transform;
         if let Some(ref fill) = self.resolve_paint(&self.fill, self.fill_opacity) {
-            let outline = path.clone().transformed(&self.transform);
+            let outline = path.clone().transformed(&tr);
             let paint_id = scene.push_paint(fill);
             let mut draw_path = DrawPath::new(outline, paint_id);
             draw_path.set_fill_rule(self.fill_rule);
@@ -162,7 +175,7 @@ impl<'a> DrawOptions<'a> {
                 let mut stroke = OutlineStrokeToFill::new(path, self.stroke_style);
                 stroke.offset();
                 let path = stroke.into_outline();
-                let mut draw_path = DrawPath::new(path.transformed(&self.transform), paint_id);
+                let mut draw_path = DrawPath::new(path.transformed(&tr), paint_id);
                 draw_path.set_clip_path(clip_path_id);
                 scene.push_draw_path(draw_path);
             }
@@ -173,22 +186,24 @@ impl<'a> DrawOptions<'a> {
     }
     pub fn apply(&self, attrs: &Attrs) -> DrawOptions<'a> {
         let mut stroke_style = self.stroke_style;
-        if let Some(length) = attrs.stroke_width {
-            stroke_style.line_width = length.num as f32;
+        if let Some(length) = attrs.stroke_width.resolve(self) {
+            stroke_style.line_width = length;
         }
         let new = DrawOptions {
             clip_path: attrs.clip_path.clone().unwrap_or_else(|| self.clip_path.clone()),
             clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
-            opacity: self.opacity * attrs.opacity.unwrap_or(1.0),
+            opacity: attrs.opacity.resolve(self).unwrap_or(1.0),
             transform: self.transform * attrs.transform.resolve(self),
             fill: attrs.fill.resolve(self),
             fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
-            fill_opacity: attrs.fill_opacity.unwrap_or(self.fill_opacity),
+            fill_opacity: attrs.fill_opacity.resolve(self).unwrap_or(self.fill_opacity),
             stroke: attrs.stroke.resolve(self),
             stroke_style,
-            stroke_opacity: attrs.stroke_opacity.unwrap_or(self.stroke_opacity),
+            stroke_opacity: attrs.stroke_opacity.resolve(self).unwrap_or(self.stroke_opacity),
+            direction: attrs.direction.unwrap_or(self.direction),
             #[cfg(feature="debug")]
             debug_font: self.debug_font.clone(),
+            font_size: attrs.font_size.resolve(self).unwrap_or(self.font_size),
             .. *self
         };
         debug!("fill {:?} + {:?} -> {:?}", self.fill, attrs.fill, new.fill);
@@ -228,23 +243,13 @@ impl<'a> DrawOptions<'a> {
         };
         Some(length.num as f32 * scale)
     }
-    pub fn resolve_vector(&self, v: Vector) -> Vector2F {
-        let x = self.resolve_length_along(v.0, Axis::X).unwrap();
-        let y = self.resolve_length_along(v.1, Axis::Y).unwrap();
-        vec2f(x, y)
-    }
-
-    pub fn resolve_rect(&self, rect: &Rect) -> RectF {
-        RectF::new(self.resolve_vector(rect.origin()), self.resolve_vector(rect.size()))
-    }
-
-    pub fn apply_viewbox(&mut self, size: Vector, view_box: &Rect) {
-        let view_box = self.resolve_rect(view_box);
-        let size = self.resolve_vector(size);
-        self.transform = self.transform
-            * Transform2F::from_scale(view_box.size().inv() * size)
-            * Transform2F::from_translation(-view_box.origin());
+    pub fn apply_viewbox(&mut self, width: Option<LengthX>, height: Option<LengthY>, view_box: &Rect) {
+        let view_box = view_box.resolve(self);
+        let width = width.and_then(|l| l.try_resolve(self)).unwrap_or(view_box.width());
+        let height = height.and_then(|l| l.try_resolve(self)).unwrap_or(view_box.height());
+        let size = vec2f(width, height);
         
+        self.transform(Transform2F::from_scale(view_box.size().inv() * size) * Transform2F::from_translation(-view_box.origin()));
         self.view_box = Some(view_box);
     }
 }

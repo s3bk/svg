@@ -17,11 +17,33 @@ impl<T> Resolve for Value<T> where T: Resolve + Parse + Clone, T::Output: Interp
         self.animations.iter().fold(base, |base, animation| apply_anim(animation, base, options))
     }
 }
+impl<T> Resolve for Option<T> where T: Resolve {
+    type Output = Option<T::Output>;
+    fn resolve(&self, options: &DrawOptions) -> Option<T::Output> {
+        self.as_ref().map(|val| val.resolve(options))
+    }
+    fn try_resolve(&self, options: &DrawOptions) -> Option<Self::Output> {
+        self.as_ref().map(|val| val.try_resolve(options))
+    }
+}
+
+impl Resolve for Length {
+    type Output = f32;
+    fn resolve(&self, options: &DrawOptions) -> Self::Output {
+        options.resolve_length(*self).unwrap()
+    }
+    fn try_resolve(&self, options: &DrawOptions) -> Option<Self::Output> {
+        options.resolve_length(*self)
+    }
+}
 
 impl Resolve for LengthX {
     type Output = f32;
     fn resolve(&self, options: &DrawOptions) -> Self::Output {
         options.resolve_length_along(self.0, Axis::X).unwrap()
+    }
+    fn try_resolve(&self, options: &DrawOptions) -> Option<Self::Output> {
+        options.resolve_length_along(self.0, Axis::X)
     }
 }
 impl Resolve for LengthY {
@@ -29,14 +51,34 @@ impl Resolve for LengthY {
     fn resolve(&self, options: &DrawOptions) -> Self::Output {
         options.resolve_length_along(self.0, Axis::Y).unwrap()
     }
+    fn try_resolve(&self, options: &DrawOptions) -> Option<Self::Output> {
+        options.resolve_length_along(self.0, Axis::Y)
+    }
 }
 impl Resolve for Vector {
     type Output = Vector2F;
     fn resolve(&self, options: &DrawOptions) -> Self::Output {
-        options.resolve_vector(*self)
+        vec2f(self.0.resolve(options), self.1.resolve(options))
+    }
+    fn try_resolve(&self, options: &DrawOptions) -> Option<Self::Output> {
+        match (self.0.try_resolve(options), self.1.try_resolve(options)) {
+            (Some(x), Some(y)) => Some(vec2f(x, y)),
+            _ => None
+        }
     }
 }
-
+impl Resolve for Rect {
+    type Output = RectF;
+    fn resolve(&self, options: &DrawOptions) -> Self::Output {
+        RectF::new(self.origin().resolve(options), self.size().resolve(options))
+    }
+    fn try_resolve(&self, options: &DrawOptions) -> Option<Self::Output> {
+        match (self.origin().try_resolve(options), self.size().try_resolve(options)) {
+            (Some(origin), Some(size)) => Some(RectF::new(origin, size)),
+            _ => None
+        }
+    }
+}
 impl Resolve for ValueVector {
     type Output = Vector2F;
     fn resolve(&self, options: &DrawOptions) -> Vector2F {

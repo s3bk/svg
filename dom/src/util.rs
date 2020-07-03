@@ -8,62 +8,6 @@ use crate::error::Error;
 use std::str::FromStr;
 use roxmltree::Node;
 
-#[cfg(feature="profile")]
-#[macro_export]
-macro_rules! timed {
-    ($label:expr, { $($t:tt)* }) => (
-        let t0 = ::std::time::Instant::now();
-        let r = $($t)*;
-        info!("{}: {:?}", $label, t0.elapsed());
-        r
-    )
-}
-
-#[cfg(not(feature="profile"))]
-#[macro_export]
-macro_rules! timed {
-    ($label:expr, { $($t:tt)* }) => (
-        $($t)*
-    )
-}
-
-#[macro_export]
-macro_rules! get_or_return {
-    ($opt:expr) => (
-        match $opt {
-            Some(val) => val,
-            None => return
-        }
-    );
-    ($opt:expr, $msg:tt $(,$args:tt)*) => (
-        match $opt {
-            Some(val) => val,
-            None => {
-                println!($msg $(,$args)*);
-                return;
-            }
-        }
-    );
-}
-#[macro_export]
-macro_rules! get_ref_or_return {
-    ($opt:expr) => (
-        match $opt {
-            Some(ref val) => val,
-            None => return
-        }
-    );
-    ($opt:expr, $msg:tt $(,$args:tt)*) => (
-        match $opt {
-            Some(ref val) => val,
-            None => {
-                println!($msg $(,$args)*);
-                return;
-            }
-        }
-    );
-}
-
 const DEG_TO_RAD: f32 = std::f32::consts::PI / 180.;
 
 #[inline]
@@ -104,25 +48,25 @@ pub struct LengthX(pub Length);
 pub struct LengthY(pub Length);
 
 #[derive(Copy, Clone, Debug)]
-pub struct Vector(pub Length, pub Length);
+pub struct Vector(pub LengthX, pub LengthY);
 impl Vector {
     pub fn has_area(&self) -> bool {
-        self.0.num != 0.0 && self.1.num != 0.0
+        (self.0).0.num != 0.0 && (self.1).0.num != 0.0
     }
 }
 
 #[derive(Debug)]
 pub struct Rect {
-    pub x: Length,
-    pub y: Length,
-    pub width: Length,
-    pub height: Length
+    pub x: LengthX,
+    pub y: LengthY,
+    pub width: LengthX,
+    pub height: LengthY
 }
 impl Rect {
-    pub fn from_size(width: Length, height: Length) -> Rect {
+    pub fn from_size(width: LengthX, height: LengthY) -> Rect {
         Rect {
-            x: Length::zero(),
-            y: Length::zero(),
+            x: LengthX(Length::zero()),
+            y: LengthY(Length::zero()),
             width,
             height
         }
@@ -138,10 +82,10 @@ impl Rect {
     pub fn parse(s: &str) -> Result<Rect, Error> {
         let mut p = LengthListParser::from(s);
         Ok(Rect {
-            x: p.next().ok_or(Error::TooShort)??,
-            y: p.next().ok_or(Error::TooShort)??,
-            width: p.next().ok_or(Error::TooShort)??,
-            height: p.next().ok_or(Error::TooShort)??,
+            x: LengthX(p.next().ok_or(Error::TooShort)??),
+            y: LengthY(p.next().ok_or(Error::TooShort)??),
+            width: LengthX(p.next().ok_or(Error::TooShort)??),
+            height: LengthY(p.next().ok_or(Error::TooShort)??),
         })
     }
 }
@@ -223,6 +167,18 @@ impl Parse for LengthY {
         Length::parse(s).map(LengthY)
     }
 }
+impl Parse for String {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Ok(s.into())
+    }
+}
+
+
+impl<T: Parse> Parse for Option<T> {
+    fn parse(s: &str) -> Result<Self, Error> {
+        T::parse(s).map(Some)
+    }
+}
 
 pub fn get_attr<'a, 'i>(node: &Node<'a, 'i>, attr: &str) -> Result<&'a str, Error> {
     match node.attribute(attr) {
@@ -249,4 +205,23 @@ pub fn parse_attr_or<'a, 'i, T: Parse>(node: &Node<'a, 'i>, attr: &str, default:
 pub enum Axis {
     X,
     Y
+}
+
+#[derive(Clone, Debug)]
+pub enum OneOrMany<T> {
+    One(T),
+    Many(Vec<T>)
+}
+impl<T> OneOrMany<T> {
+    pub fn as_slice(&self) -> &[T] {
+        match *self {
+            OneOrMany::One(ref t) => std::slice::from_ref(t),
+            OneOrMany::Many(ref t) => t.as_slice()
+        }
+    }
+}
+impl Parse for OneOrMany<f32> {
+    fn parse(s: &str) -> Result<Self, Error> {
+        crate::parser::one_or_many_f32(s)
+    }
 }

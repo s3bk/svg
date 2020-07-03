@@ -7,8 +7,8 @@ use svgtypes::Color;
 
 #[derive(Debug)]
 pub struct TagLinearGradient {
-    pub from: (Option<Length>, Option<Length>),
-    pub to: (Option<Length>, Option<Length>),
+    pub from: (Option<LengthX>, Option<LengthY>),
+    pub to: (Option<LengthX>, Option<LengthY>),
     pub gradient_transform: Option<Transform2F>,
     pub stops: Vec<TagStop>,
     pub id: Option<String>,
@@ -17,8 +17,8 @@ pub struct TagLinearGradient {
 
 #[derive(Debug)]
 pub struct TagRadialGradient {
-    pub center: (Option<Length>, Option<Length>),
-    pub focus: (Option<Length>, Option<Length>),
+    pub center: (Option<LengthX>, Option<LengthY>),
+    pub focus: (Option<LengthX>, Option<LengthY>),
     pub radius: Option<Length>,
     pub gradient_transform: Option<Transform2F>,
     pub stops: Vec<TagStop>,
@@ -45,12 +45,14 @@ impl Tag for TagRadialGradient {
 }
 impl ParseNode for TagLinearGradient {
     fn parse_node(node: &Node) -> Result<TagLinearGradient, Error> {
-        let x1 = node.attribute("x1").map(Length::from_str).transpose()?;
-        let y1 = node.attribute("y1").map(Length::from_str).transpose()?;
-        let x2 = node.attribute("x2").map(Length::from_str).transpose()?;
-        let y2 = node.attribute("y2").map(Length::from_str).transpose()?;
+        parse!(node => {
+            var x1: Option<LengthX>,
+            var y1: Option<LengthY>,
+            var x2: Option<LengthX>,
+            var y2: Option<LengthY>,
+            var id,
+        });
         let gradient_transform = node.attribute("gradientTransform").map(transform_list).transpose()?;
-        let id = node.attribute("id").map(|s| s.to_owned());
         let href = href(node);
     
         let mut stops = Vec::new();
@@ -73,13 +75,15 @@ impl ParseNode for TagLinearGradient {
 }
 impl ParseNode for TagRadialGradient {
     fn parse_node(node: &Node) -> Result<TagRadialGradient, Error> {
-        let cx = node.attribute("cx").map(Length::from_str).transpose()?;
-        let cy = node.attribute("cy").map(Length::from_str).transpose()?;
-        let r = node.attribute("r").map(Length::from_str).transpose()?;
-        let fx = node.attribute("x2").map(Length::from_str).transpose()?;
-        let fy = node.attribute("y2").map(Length::from_str).transpose()?;
+        parse!(node => {
+            var cx: Option<LengthX>,
+            var cy: Option<LengthY>,
+            var fx: Option<LengthX>,
+            var fy: Option<LengthY>,
+            var r: Option<Length>,
+            var id,
+        });
         let gradient_transform = node.attribute("gradientTransform").map(transform_list).transpose()?;
-        let id = node.attribute("id").map(|s| s.to_owned());
         let href = href(node);
     
         let mut stops = Vec::new();

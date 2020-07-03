@@ -283,9 +283,14 @@ impl Transform {
     pub fn new(value: Transform2F) -> Transform {
         Transform { value, animations: Vec::new() }
     }
-    pub fn parse_animate_transform(&mut self, node: &Node) -> Result<(), Error> {
+    pub fn parse_animate_node(&mut self, node: &Node) -> Result<(), Error> {
         self.animations.push(TransformAnimate::parse_animate_transform(node)?);
         Ok(())
+    }
+}
+impl Parse for Transform {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Ok(Transform::new(transform_list(s)?))
     }
 }
 #[derive(Debug, Clone)]

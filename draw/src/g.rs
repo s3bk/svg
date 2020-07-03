@@ -45,16 +45,12 @@ fn draw_items(scene: &mut Scene, items: &[Arc<Item>], attrs: &Attrs, options: &D
 }
 fn content_transform<'a>(tag: &TagUse, options: &DrawOptions<'a>, item: &Item) -> DrawOptions<'a> {
     let mut options = options.apply(&tag.attrs);
-    let pos = options.resolve_vector(Vector(tag.x.unwrap_or_default(), tag.y.unwrap_or_default()));
+    let pos = tag.pos.resolve(&options);
     options.transform(Transform2F::from_translation(pos));
     match *item {
         Item::Symbol(TagSymbol { view_box: Some(ref view_box), .. }) |
         Item::Svg(TagSvg { view_box: Some(ref view_box), .. }) => {
-            let size = Vector(
-                tag.width.unwrap_or(view_box.width),
-                tag.height.unwrap_or(view_box.height)
-            );
-            options.apply_viewbox(size, view_box);
+            options.apply_viewbox(tag.width, tag.height, view_box);
         }
         _ => {}
     }

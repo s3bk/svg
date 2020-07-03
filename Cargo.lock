@@ -413,6 +413,7 @@ dependencies = [
  "pathfinder_renderer",
  "rand",
  "slotmap",
+ "svg_dom",
  "tuple",
  "walkdir",
 ]
@@ -1740,6 +1741,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "svg_derive"
+version = "0.1.0"
+dependencies = [
+ "quote 1.0.7",
+ "syn",
+]
+
+[[package]]
 name = "svg_dom"
 version = "0.1.0"
 dependencies = [
@@ -1775,8 +1784,20 @@ dependencies = [
  "pathfinder_simd",
  "pathfinder_view",
  "svg_dom",
+ "svg_text",
  "svgtypes",
  "unicode-bidi",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "svg_text"
+version = "0.1.0"
+dependencies = [
+ "font",
+ "itertools 0.9.0",
+ "pathfinder_content",
+ "pathfinder_geometry",
 ]
 
 [[package]]
@@ -1844,6 +1865,12 @@ checksum = "49f2bd0c6468a8230e1db229cff8029217cf623c767ea5d60bfbd42729ea54d5"
 dependencies = [
  "matches",
 ]
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e83e153d1053cbb5a118eeff7fd5be06ed99153f00dbcd8ae310c5fb2b22edc0"
 
 [[package]]
 name = "unicode-xid"

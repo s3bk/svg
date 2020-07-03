@@ -6,15 +6,15 @@ use pathfinder_simd::default::F32x2;
 use svgtypes::Color;
 
 struct PartialLinearGradient<'a> {
-    from: (Option<Length>, Option<Length>),
-    to: (Option<Length>, Option<Length>),
+    from: (Option<LengthX>, Option<LengthY>),
+    to: (Option<LengthX>, Option<LengthY>),
     gradient_transform: Option<Transform2F>,
     stops: &'a [TagStop],
 }
 
 struct PartialRadialGradient<'a> {
-    center: (Option<Length>, Option<Length>),
-    focus: (Option<Length>, Option<Length>),
+    center: (Option<LengthX>, Option<LengthY>),
+    focus: (Option<LengthX>, Option<LengthY>),
     radius: Option<Length>,
     gradient_transform: Option<Transform2F>,
     stops: &'a [TagStop],
@@ -66,9 +66,9 @@ fn select_stops<'a>(a: &'a [TagStop], b: &'a [TagStop]) -> &'a [TagStop] {
 }
 
 fn merge_point(
-    a: &(Option<Length>, Option<Length>),
-    b: &(Option<Length>, Option<Length>)
-) -> (Option<Length>, Option<Length>) {
+    a: &(Option<LengthX>, Option<LengthY>),
+    b: &(Option<LengthX>, Option<LengthY>)
+) -> (Option<LengthX>, Option<LengthY>) {
     (
         a.0.or(b.0),
         a.1.or(b.1)
@@ -80,10 +80,10 @@ fn length_or_percent(a: Option<Length>, default: f64) -> Length {
         None => Length::new(default, LengthUnit::Percent)
     }
 }
-fn point_or_percent(a: (Option<Length>, Option<Length>), default: (f64, f64)) -> Vector {
+fn point_or_percent((x, y): (Option<LengthX>, Option<LengthY>), (dx, dy): (f64, f64)) -> Vector {
     Vector(
-        length_or_percent(a.0, default.0),
-        length_or_percent(a.1, default.1),
+        x.unwrap_or(LengthX(Length::new(dx, LengthUnit::Percent))),
+        y.unwrap_or(LengthY(Length::new(dy, LengthUnit::Percent))),
     )
 }
 
@@ -129,8 +129,8 @@ impl<'a> PartialLinearGradient<'a> {
         let gradient_transform = self.gradient_transform.unwrap_or_default();
 
         let mut gradient = Gradient::linear_from_points(
-            options.resolve_vector(from),
-            options.resolve_vector(to)
+            from.resolve(options),
+            to.resolve(options),
         );
         for stop in self.stops {
             gradient.add_color_stop(stop.color_u(opacity), stop.offset);
@@ -149,8 +149,8 @@ impl<'a> PartialRadialGradient<'a> {
 
         let mut gradient = Gradient::radial(
             LineSegment2F::new(
-                options.resolve_vector(focus),
-                options.resolve_vector(center)
+                focus.resolve(options),
+                center.resolve(options)
             ),
             F32x2::new(0.0, options.resolve_length(radius).unwrap())
         );

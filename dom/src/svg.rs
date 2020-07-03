@@ -10,8 +10,8 @@ pub struct TagSvg {
     pub id: Option<String>,
     pub items: Vec<Arc<Item>>,
     pub view_box: Option<Rect>,
-    pub width: Option<Length>,
-    pub height: Option<Length>,
+    pub width: Option<LengthX>,
+    pub height: Option<LengthY>,
     pub attrs: Attrs,
 }
 
@@ -32,16 +32,10 @@ impl Tag for TagSvg {
 impl ParseNode for TagSvg {
     fn parse_node(node: &Node) -> Result<TagSvg, Error> {
         let view_box = node.attribute("viewBox").map(Rect::parse).transpose()?;
-        let width = node.attribute("width").map(length).transpose()?;
-        let height = node.attribute("height").map(length).transpose()?;
+        let width = node.attribute("width").map(LengthX::parse).transpose()?;
+        let height = node.attribute("height").map(LengthY::parse).transpose()?;
         let id = node.attribute("id").map(|s| s.into());
         let attrs = Attrs::parse(node)?;
-    
-        let view_box = match (view_box, width, height) {
-            (Some(r), _, _) => Some(r),
-            (None, Some(w), Some(h)) => Some(Rect::from_size(w, h)),
-            _ => None
-        };
 
         let items = parse_node_list(node.children())?;
     
@@ -55,7 +49,7 @@ impl Svg {
     }
     pub fn from_str(text: &str) -> Result<Svg, Error> {
         let doc = Document::parse(text)?;
-        let root = parse_node(&doc.root_element());
+        let root = parse_node(&doc.root_element(), true, true);
         let root_item = Arc::new(root?.ok_or(Error::NotSvg)?);
 
         let mut named_items = ItemCollection::new();

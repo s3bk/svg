@@ -1,11 +1,9 @@
-#[cfg(feature="text")]
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
 
 use pathfinder_renderer::{
     scene::{Scene}
 };
-use std::sync::Arc;
 
 #[macro_use]
 mod macros;
@@ -36,17 +34,18 @@ mod filter;
 mod g;
 mod draw;
 mod svg;
+mod text;
 mod animate;
 mod paint;
-
-#[cfg(feature="text")]
-mod text;
 
 pub use prelude::*;
 
 pub trait Resolve {
     type Output;
     fn resolve(&self, options: &DrawOptions) -> Self::Output;
+    fn try_resolve(&self, options: &DrawOptions) -> Option<Self::Output> {
+        Some(self.resolve(options))
+    }
 }
 
 pub trait DrawItem {
@@ -57,6 +56,17 @@ pub trait DrawItem {
 pub trait Interpolate: Clone {
     fn lerp(self, to: Self, x: f32) -> Self;
     fn scale(self, x: f32) -> Self;
+}
+impl<T> Interpolate for Option<T> where T: Interpolate {
+    fn lerp(self, to: Self, x: f32) -> Self {
+        match (self, to) {
+            (Some(a), Some(b)) => Some(a.lerp(b, x)),
+            _ => None
+        }
+    }
+    fn scale(self, x: f32) -> Self {
+        self.map(|v| v.scale(x))
+    }
 }
 
 pub trait Compose {
@@ -99,6 +109,7 @@ draw_items!(
         Ellipse(TagEllipse),
         Svg(TagSvg),
         Use(TagUse),
+        Text(TagText),
     }
 );
 
@@ -117,15 +128,17 @@ impl DrawSvg {
         let ctx = self.ctx();
         let mut options = DrawOptions::new(&ctx);
         options.transform = transform;
+        //options.view_box = Some(RectF::new(Vector2F::zero(), Vector2F::new(10., 10.)));
         self.compose_with_options(&options)
     }
 
     pub fn compose_with_options(&self, options: &DrawOptions) -> Scene {
         let mut scene = Scene::new();
         
-        if let Item::Svg(TagSvg { view_box: Some(r), .. }) = &*self.svg.root {
-            scene.set_view_box(options.transform * options.resolve_rect(r));
+        if let Some(vb) = self.view_box() {
+            scene.set_view_box(vb);
         }
+        dbg!(options);
         self.svg.root.draw_to(&mut scene, options);
         scene
     }
@@ -135,14 +148,26 @@ impl DrawSvg {
         let ctx = self.ctx();
         let options = DrawOptions::new(&ctx);
         
-        if let Item::Svg(TagSvg { view_box: Some(r), .. }) = &*self.svg.root {
-            return Some(options.resolve_rect(r));
-        } else {
-            self.svg.root.bounds(&options)
+        if let Item::Svg(TagSvg { view_box: Some(r), width, height, .. }) = &*self.svg.root {
+            if let Some(size) = Vector(
+                width.unwrap_or(r.width),
+                height.unwrap_or(r.height)
+            ).try_resolve(&options) {
+                return Some(RectF::new(Vector2F::zero(), size));
+            }
         }
+        self.svg.root.bounds(&options)
     }
 
     pub fn ctx(&self) -> DrawContext {
         DrawContext::new(&self.svg)
     }
+}
+
+use font::SvgGlyph;
+pub fn draw_glyph(glyph: &SvgGlyph, scene: &mut Scene, transform: Transform2F) {
+    let ctx = DrawContext::new(&glyph.svg);
+    let mut options = DrawOptions::new(&ctx);
+    options.transform = transform * Transform2F::from_scale(Vector2F::new(1.0, -1.0));
+    glyph.item.draw_to(scene, &options);
 }
