@@ -79,9 +79,9 @@ impl FilterState {
                 //path_y.set_clip_path(clip_path);
         
                 scene.pop_render_target();
-                scene.push_path(path_x);
+                scene.push_draw_path(path_x);
                 scene.pop_render_target();
-                scene.push_path(path_y);
+                scene.push_draw_path(path_y);
             }
         }
     }

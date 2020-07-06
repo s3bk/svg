@@ -327,9 +327,9 @@ dependencies = [
 
 [[package]]
 name = "deflate"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7e5d2a2273fed52a7f947ee55b092c4057025d7a3e04e5ecdbd25d6c3fb1bd7"
+checksum = "5636dc1e1a96d178b7dd728a07c1e1dd97ad92361e54303c3be3d18b0f3a87e8"
 dependencies = [
  "adler32",
  "byteorder",
@@ -403,7 +403,7 @@ checksum = "75224bec9bfe1a65e2d34132933f2de7fe79900c96a0174307554244ece8150e"
 [[package]]
 name = "font"
 version = "0.1.0"
-source = "git+https://github.com/pdf-rs/font#6047031ce86dd5fb075c4225f7deeaaeb596918f"
+source = "git+https://github.com/pdf-rs/font#17d3c1d19d937440c760c79be373798326f02bcb"
 dependencies = [
  "brotli-decompressor",
  "decorum",
@@ -413,14 +413,13 @@ dependencies = [
  "itertools 0.8.2",
  "log",
  "nom",
- "pathfinder_builder",
  "pathfinder_color",
  "pathfinder_content",
  "pathfinder_geometry",
  "pathfinder_renderer",
  "rand",
  "slotmap",
- "svg_dom 0.1.0 (git+https://github.com/s3bk/pathfinder_svg)",
+ "svg_dom",
  "tuple",
  "walkdir",
 ]
@@ -1139,15 +1138,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pathfinder_builder"
-version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder/#f044ed25b9c893bc5cdc536387011f127741f7bf"
-dependencies = [
- "pathfinder_content",
- "pathfinder_geometry",
-]
-
-[[package]]
 name = "pathfinder_color"
 version = "0.5.0"
 dependencies = [
@@ -1161,9 +1151,9 @@ dependencies = [
  "arrayvec",
  "bitflags",
  "image",
+ "log",
  "pathfinder_color",
  "pathfinder_geometry",
- "pathfinder_log 0.1.0",
  "pathfinder_simd",
  "smallvec",
 ]
@@ -1171,7 +1161,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_export"
 version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder/#f044ed25b9c893bc5cdc536387011f127741f7bf"
+source = "git+https://github.com/servo/pathfinder/#5cabc4a699b494362794fa99c493fd0534a307af"
 dependencies = [
  "deflate",
  "pathfinder_color",
@@ -1193,9 +1183,9 @@ version = "0.5.0"
 dependencies = [
  "gl",
  "half",
+ "log",
  "pathfinder_geometry",
  "pathfinder_gpu 0.5.0",
- "pathfinder_log 0.1.0",
  "pathfinder_resources",
  "pathfinder_simd",
 ]
@@ -1203,11 +1193,14 @@ dependencies = [
 [[package]]
 name = "pathfinder_gpu"
 version = "0.5.0"
-source = "git+https://github.com/s3bk/pathfinder/#f044ed25b9c893bc5cdc536387011f127741f7bf"
+source = "git+https://github.com/servo/pathfinder/#5cabc4a699b494362794fa99c493fd0534a307af"
 dependencies = [
  "bitflags",
+ "fxhash",
  "half",
  "image",
+ "instant",
+ "log",
  "pathfinder_color",
  "pathfinder_geometry",
  "pathfinder_resources",
@@ -1228,21 +1221,6 @@ dependencies = [
  "pathfinder_geometry",
  "pathfinder_resources",
  "pathfinder_simd",
-]
-
-[[package]]
-name = "pathfinder_log"
-version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder/#f044ed25b9c893bc5cdc536387011f127741f7bf"
-dependencies = [
- "log",
-]
-
-[[package]]
-name = "pathfinder_log"
-version = "0.1.0"
-dependencies = [
- "log",
 ]
 
 [[package]]
@@ -1262,7 +1240,6 @@ dependencies = [
  "pathfinder_content",
  "pathfinder_geometry",
  "pathfinder_gpu 0.5.0",
- "pathfinder_log 0.1.0",
  "pathfinder_resources",
  "pathfinder_simd",
  "pathfinder_ui",
@@ -1277,7 +1254,7 @@ dependencies = [
 name = "pathfinder_resources"
 version = "0.5.0"
 dependencies = [
- "pathfinder_log 0.1.0",
+ "log",
 ]
 
 [[package]]
@@ -1328,13 +1305,13 @@ dependencies = [
 [[package]]
 name = "pathfinder_webgl"
 version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder/#f044ed25b9c893bc5cdc536387011f127741f7bf"
+source = "git+https://github.com/servo/pathfinder/#5cabc4a699b494362794fa99c493fd0534a307af"
 dependencies = [
  "image",
  "js-sys",
+ "log",
  "pathfinder_geometry",
- "pathfinder_gpu 0.5.0 (git+https://github.com/s3bk/pathfinder/)",
- "pathfinder_log 0.1.0 (git+https://github.com/s3bk/pathfinder/)",
+ "pathfinder_gpu 0.5.0 (git+https://github.com/servo/pathfinder/)",
  "pathfinder_renderer",
  "pathfinder_resources",
  "pathfinder_simd",
@@ -1763,24 +1740,6 @@ dependencies = [
 [[package]]
 name = "svg_dom"
 version = "0.1.0"
-source = "git+https://github.com/s3bk/pathfinder_svg#c233180f1c25a8474bea0e3f127718aa173a7ec0"
-dependencies = [
- "itertools 0.9.0",
- "libflate",
- "log",
- "nom",
- "pathfinder_color",
- "pathfinder_content",
- "pathfinder_geometry",
- "pathfinder_renderer",
- "pathfinder_simd",
- "roxmltree",
- "svgtypes",
-]
-
-[[package]]
-name = "svg_dom"
-version = "0.1.0"
 dependencies = [
  "itertools 0.9.0",
  "libflate",
@@ -1811,9 +1770,10 @@ dependencies = [
  "pathfinder_content",
  "pathfinder_geometry",
  "pathfinder_renderer",
+ "pathfinder_resources",
  "pathfinder_simd",
  "pathfinder_view",
- "svg_dom 0.1.0",
+ "svg_dom",
  "svg_text",
  "svgtypes",
  "unicode-bidi",

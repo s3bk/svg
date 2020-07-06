@@ -7,7 +7,7 @@ impl Resolve for TagClipPath {
         let mut outline = Outline::new();
         for path in &self.paths {
             let tr = options.transform * path.attrs.transform.resolve(options);
-            outline.merge(path.outline.clone().transformed(&tr));
+            outline.push_outline(path.outline.clone().transformed(&tr));
         }
         outline
     }

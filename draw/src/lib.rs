@@ -166,7 +166,7 @@ impl DrawSvg {
 
 use font::SvgGlyph;
 pub fn draw_glyph(glyph: &SvgGlyph, scene: &mut Scene, transform: Transform2F) {
-    let ctx = DrawContext::new(&glyph.svg);
+    let ctx = DrawContext::new(&*glyph.svg);
     let mut options = DrawOptions::new(&ctx);
     options.transform = transform * Transform2F::from_scale(Vector2F::new(1.0, -1.0));
     glyph.item.draw_to(scene, &options);

@@ -11,8 +11,8 @@ log = "0.4.8"
 itertools = "0.9.0"
 libflate = "1.0.1"
 nom = "5.1.2"
-pathfinder_geometry = { git = "https://github.com/s3bk/pathfinder/" }
-pathfinder_content = { git = "https://github.com/s3bk/pathfinder/" }
-pathfinder_renderer = { git = "https://github.com/s3bk/pathfinder/" }
-pathfinder_color = { git = "https://github.com/s3bk/pathfinder/" }
-pathfinder_simd = { git = "https://github.com/s3bk/pathfinder/" }
+pathfinder_geometry = { git = "https://github.com/servo/pathfinder/" }
+pathfinder_content = { git = "https://github.com/servo/pathfinder/" }
+pathfinder_renderer = { git = "https://github.com/servo/pathfinder/" }
+pathfinder_color = { git = "https://github.com/servo/pathfinder/" }
+pathfinder_simd = { git = "https://github.com/servo/pathfinder/" }
