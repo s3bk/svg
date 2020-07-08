@@ -424,6 +424,7 @@ checksum = "75224bec9bfe1a65e2d34132933f2de7fe79900c96a0174307554244ece8150e"
 [[package]]
 name = "font"
 version = "0.1.0"
+source = "git+https://github.com/pdf-rs/font?branch=dev#f78b8e959e386bf68ddd57350f757c4a494686f5"
 dependencies = [
  "brotli-decompressor",
  "decorum",
@@ -1149,6 +1150,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_color"
 version = "0.5.0"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
  "pathfinder_simd",
 ]
@@ -1156,6 +1158,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_content"
 version = "0.5.0"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
  "arrayvec",
  "bitflags",
@@ -1182,13 +1185,16 @@ dependencies = [
 [[package]]
 name = "pathfinder_geometry"
 version = "0.5.1"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
+ "log",
  "pathfinder_simd",
 ]
 
 [[package]]
 name = "pathfinder_gl"
 version = "0.5.0"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
  "gl",
  "half",
@@ -1202,6 +1208,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_gpu"
 version = "0.5.0"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
  "bitflags",
  "fxhash",
@@ -1218,6 +1225,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_renderer"
 version = "0.5.0"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
  "bitflags",
  "byte-slice-cast",
@@ -1245,13 +1253,12 @@ dependencies = [
 [[package]]
 name = "pathfinder_resources"
 version = "0.5.0"
-dependencies = [
- "log",
-]
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 
 [[package]]
 name = "pathfinder_simd"
 version = "0.5.0"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
  "rustc_version",
 ]
@@ -1259,6 +1266,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_ui"
 version = "0.5.0"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
  "hashbrown",
  "pathfinder_color",
@@ -1274,6 +1282,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_view"
 version = "0.1.0"
+source = "git+https://github.com/s3bk/pathfinder_view/#7a9784c61d14eff1e0183e51c06df0c92862035d"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -1297,6 +1306,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_webgl"
 version = "0.1.0"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
  "image",
  "js-sys",

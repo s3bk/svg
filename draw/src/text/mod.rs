@@ -11,7 +11,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 lazy_static! {
     static ref LATIN_MODERN: Font = Font::load(include_bytes!("../../../resources/latinmodern-math.otf"));
-    static ref NOTO_NASKH_ARABIC: Font = Font::load(include_bytes!("/home/sebk/Rust/font/fonts/noto/NotoNaskhArabic-Regular.ttf"));
+    static ref NOTO_NASKH_ARABIC: Font = Font::load(include_bytes!("../../../resources/NotoNaskhArabic-Regular.ttf"));
 }
 
 

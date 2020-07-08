@@ -249,7 +249,7 @@ impl<'a> DrawOptions<'a> {
         let height = height.and_then(|l| l.try_resolve(self)).unwrap_or(view_box.height());
         let size = vec2f(width, height);
         
-        self.transform(Transform2F::from_scale(view_box.size().inv() * size) * Transform2F::from_translation(-view_box.origin()));
+        self.transform(Transform2F::from_scale(view_box.size().recip() * size) * Transform2F::from_translation(-view_box.origin()));
         self.view_box = Some(view_box);
     }
 }
