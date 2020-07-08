@@ -55,9 +55,20 @@ struct TextState {
     pos: Vector2F,
     rot: f32,
 }
+impl TextState {
+    fn apply_move(self, m: Move) -> TextState {
+        let x = m.abs_x.unwrap_or(self.pos.x());
+        let y = m.abs_y.unwrap_or(self.pos.y());
+        let rot = m.rot.unwrap_or(self.rot);
+        TextState {
+            pos: vec2f(x, y) + m.rel,
+            rot
+        }
+    }
+}
 
 fn chunk(scene: &mut Scene, options: &DrawOptions, s: &str, state: TextState, font: &FontCollection) -> Vector2F {
-    println!("{} {:?}", s, state);
+    debug!("{} {:?}", s, state);
     let layout = Chunk::new(s, options.direction).layout(font);
     draw_layout(&layout, scene, &options, state)
 }
@@ -68,21 +79,24 @@ fn draw_items(scene: &mut Scene, options: &DrawOptions, pos: &GlyphPos, items: &
 
     for item in items.iter() {
         match **item {
-            Item::String(ref s) => {
+            Item::String(ref s) if s.len() > 0 => {
+                let mut start = 0;
                 for (idx, grapheme) in s.grapheme_indices(true) {
                     let num_chars = grapheme.chars().count();
-                    if let Some(new_state) = moves.get(&options, num_chars, state, char_idx) {
-                        state = new_state;
-                        state.pos = state.pos + chunk(scene, options, grapheme, state, fallback);
+                    if let Some(next_move) = moves.get(&options, num_chars, char_idx) {
+                        if idx > 0 {
+                            state.pos = state.pos + chunk(scene, options, &s[start .. idx], state, fallback);
+                        }
+                        start = idx;
+                        state = state.apply_move(next_move);
                         char_idx += num_chars;
-                    } else {
-                        let part = &s[idx ..];
-                        let num_chars = part.chars().count();
-                        state.pos = state.pos + chunk(scene, options, part, state, fallback);
-                        char_idx += num_chars;
-                        break;
                     }
                 }
+
+                let part = &s[start ..];
+                let num_chars = part.chars().count();
+                state.pos = state.pos + chunk(scene, options, part, state, fallback);
+                char_idx += num_chars;
             },
             Item::TSpan(ref span) => {
                 let options = options.apply(&span.attrs);
@@ -155,7 +169,7 @@ impl<'a> Moves<'a> {
     fn rotate(&self, idx: usize) -> Option<f32> {
         self.rotate.get(idx - self.offset).or(self.rotate.last()).cloned().or_else(|| self.parent.and_then(|p| p.rotate(idx)))
     }
-    fn get<'o>(&self, options: &'o DrawOptions<'o>, num_chars: usize, state: TextState, idx: usize) -> Option<TextState> {
+    fn get<'o>(&self, options: &'o DrawOptions<'o>, num_chars: usize, idx: usize) -> Option<Move> {
         let rel = |dx: Option<LengthX>, dy: Option<LengthY>| {
             let dx2: f32 = (idx + 1 .. idx + num_chars).flat_map(|idx| self.dx(idx).map(|l| l.resolve(options))).sum();
             let dy2: f32 = (idx + 1 .. idx + num_chars).flat_map(|idx| self.dy(idx).map(|l| l.resolve(options))).sum();
@@ -164,18 +178,28 @@ impl<'a> Moves<'a> {
                 dy.map(|l| l.resolve(options)).unwrap_or(0.0) + dy2
             )
         };
-        let rot = |phi: Option<f32>| phi.unwrap_or(state.rot);
 
         match (self.x(idx), self.y(idx), self.dx(idx), self.dy(idx), self.rotate(idx)) {
             (None, None, None, None, None) => None,
-            (None, None, dx, dy, phi) => Some(TextState { pos: state.pos + rel(dx, dy), rot: rot(phi)} ),
-            (x, y, dx, dy, phi) => Some(TextState {
-                pos: vec2f(
-                    x.map(|l| l.resolve(options)).unwrap_or(state.pos.x()),
-                    y.map(|l| l.resolve(options)).unwrap_or(state.pos.y()),
-                ) + rel(dx, dy),
-                rot: rot(phi)
+            (None, None, dx, dy, phi) => Some(Move {
+                abs_x: None,
+                abs_y: None,
+                rel: rel(dx, dy),
+                rot: phi
+            }),
+            (x, y, dx, dy, phi) => Some(Move {
+                abs_x: x.map(|l| l.resolve(options)),
+                abs_y: y.map(|l| l.resolve(options)),
+                rel: rel(dx, dy),
+                rot: phi
             })
         }
     }
+}
+
+struct Move {
+    abs_x: Option<f32>,
+    abs_y: Option<f32>,
+    rel: Vector2F,
+    rot: Option<f32>
 }

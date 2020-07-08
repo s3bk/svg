@@ -4,10 +4,11 @@ version = "0.1.0"
 authors = ["Sebastian K <s3bk@protonmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-font = { git="https://github.com/pdf-rs/font", features=["svg"] }
+font = { git = "https://github.com/pdf-rs/font", branch = "dev", features = ["svg"] }
 pathfinder_geometry = { git = "https://github.com/servo/pathfinder/" }
 pathfinder_content = { git = "https://github.com/servo/pathfinder/" }
 itertools = "0.9.0"
+unicode-segmentation = "1.6"
+unicode-joining-type = "0.3"
+log = "0.4"

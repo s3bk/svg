@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+
+    <g font-size="20">
+        <g xml:lang="en" font-family="Nimbus Roman No9 L, serif">
+            <text y="100">LTR</text>
+            <text y="200">RTL</text>
+        </g>
+        <g xml:lang="fa" transform="translate(50 0)" font-family="Noto Naskh Arabic, serif">
+            <text direction="ltr" y="100">داستان SVG 1.1 SE طولا ني است.</text>
+            <text direction="rtl" y="200" text-anchor="end">داستان SVG 1.1 SE طولا ني است.</text>
+        </g>
+    </g>
+</svg>

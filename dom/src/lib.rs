@@ -162,7 +162,7 @@ fn parse_node(node: &Node, first: bool, last: bool) -> Result<Option<Item>, Erro
 }
 
 fn parse_text(node: &Node, first: bool, last: bool) -> Result<Option<Item>, Error> {
-    Ok(node.text().map(|s| {
+    Ok(node.text().and_then(|s| {
         let mut last_is_space = first;
         let mut processed: String = s.chars()
         .filter_map(|c| {
@@ -188,7 +188,11 @@ fn parse_text(node: &Node, first: bool, last: bool) -> Result<Option<Item>, Erro
         if last && last_is_space && processed.len() > 0 {
             processed.pop();
         }
-        Item::String(processed)
+        if processed.len() > 0 {
+            Some(Item::String(processed))
+        } else {
+            None
+        }
     }))
 }
 

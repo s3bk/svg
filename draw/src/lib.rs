@@ -136,9 +136,8 @@ impl DrawSvg {
         let mut scene = Scene::new();
         
         if let Some(vb) = self.view_box() {
-            scene.set_view_box(vb);
+            scene.set_view_box(options.transform * vb);
         }
-        dbg!(options);
         self.svg.root.draw_to(&mut scene, options);
         scene
     }

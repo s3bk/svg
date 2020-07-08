@@ -207,6 +207,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8d976903543e0c48546a91908f21588a680a8c8f984df9a5d69feccb2b2a211"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "console_log"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "501a375961cef1a0d44767200e66e4a559283097e91d0730b1d75dfb2f8a1494"
+dependencies = [
+ "log",
+ "web-sys",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -316,10 +336,11 @@ dependencies = [
 
 [[package]]
 name = "decorum"
-version = "0.1.3"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "491a104cf5be9912dd984d548df608fbfb73ceb0180eeb86c7bb3942758d82fe"
+checksum = "281759d3c8a14f5c3f0c49363be56810fcd7f910422f97f2db850c2920fde5cf"
 dependencies = [
+ "approx",
  "num-traits 0.2.12",
  "serde",
  "serde_derive",
@@ -327,9 +348,9 @@ dependencies = [
 
 [[package]]
 name = "deflate"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5636dc1e1a96d178b7dd728a07c1e1dd97ad92361e54303c3be3d18b0f3a87e8"
+checksum = "73770f8e1fe7d64df17ca66ad28994a0a623ea497fa69486e14984e715c5d174"
 dependencies = [
  "adler32",
  "byteorder",
@@ -403,25 +424,22 @@ checksum = "75224bec9bfe1a65e2d34132933f2de7fe79900c96a0174307554244ece8150e"
 [[package]]
 name = "font"
 version = "0.1.0"
-source = "git+https://github.com/pdf-rs/font#17d3c1d19d937440c760c79be373798326f02bcb"
 dependencies = [
  "brotli-decompressor",
  "decorum",
  "encoding",
  "indexmap",
  "inflate",
- "itertools 0.8.2",
+ "itertools",
  "log",
  "nom",
  "pathfinder_color",
  "pathfinder_content",
  "pathfinder_geometry",
- "pathfinder_renderer",
  "rand",
  "slotmap",
  "svg_dom",
  "tuple",
- "walkdir",
 ]
 
 [[package]]
@@ -598,9 +616,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.14"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9586eedd4ce6b3c498bc3b4dd92fc9f11166aa908a914071953768066c67909"
+checksum = "3deed196b6e7f9e44a2ae8d94225d80302d81208b1bb673fd21fe634645c85a9"
 dependencies = [
  "libc",
 ]
@@ -648,9 +666,9 @@ dependencies = [
 
 [[package]]
 name = "instant"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69da7ce1490173c2bf4d26bc8be429aaeeaf4cce6c4b970b7949651fa17655fe"
+checksum = "5b141fdc7836c525d4d594027d318c84161ca17aaf8113ab1f81ab93ae897485"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
@@ -664,15 +682,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2b3ea6ff95e175473f8ffe6a7eb7c00d054240321b84c57051175fe3c1e075e"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "itertools"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
-dependencies = [
- "either",
 ]
 
 [[package]]
@@ -748,9 +757,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.71"
+version = "0.2.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9457b06509d27052635f90d6466700c65095fdf75409b3fbdd903e988b886f49"
+checksum = "a9f8082297d534141b30c8d39e9b1773713ab50fdbe4ff30f750d063b3bfd701"
 
 [[package]]
 name = "libflate"
@@ -1161,7 +1170,7 @@ dependencies = [
 [[package]]
 name = "pathfinder_export"
 version = "0.1.0"
-source = "git+https://github.com/servo/pathfinder/#5cabc4a699b494362794fa99c493fd0534a307af"
+source = "git+https://github.com/servo/pathfinder/#0bf0f58fa49e601f1bb626e7cfa4cd8fa6873baa"
 dependencies = [
  "deflate",
  "pathfinder_color",
@@ -1185,24 +1194,7 @@ dependencies = [
  "half",
  "log",
  "pathfinder_geometry",
- "pathfinder_gpu 0.5.0",
- "pathfinder_resources",
- "pathfinder_simd",
-]
-
-[[package]]
-name = "pathfinder_gpu"
-version = "0.5.0"
-source = "git+https://github.com/servo/pathfinder/#5cabc4a699b494362794fa99c493fd0534a307af"
-dependencies = [
- "bitflags",
- "fxhash",
- "half",
- "image",
- "instant",
- "log",
- "pathfinder_color",
- "pathfinder_geometry",
+ "pathfinder_gpu",
  "pathfinder_resources",
  "pathfinder_simd",
 ]
@@ -1239,7 +1231,7 @@ dependencies = [
  "pathfinder_color",
  "pathfinder_content",
  "pathfinder_geometry",
- "pathfinder_gpu 0.5.0",
+ "pathfinder_gpu",
  "pathfinder_resources",
  "pathfinder_simd",
  "pathfinder_ui",
@@ -1271,7 +1263,7 @@ dependencies = [
  "hashbrown",
  "pathfinder_color",
  "pathfinder_geometry",
- "pathfinder_gpu 0.5.0",
+ "pathfinder_gpu",
  "pathfinder_resources",
  "pathfinder_simd",
  "serde",
@@ -1305,13 +1297,12 @@ dependencies = [
 [[package]]
 name = "pathfinder_webgl"
 version = "0.1.0"
-source = "git+https://github.com/servo/pathfinder/#5cabc4a699b494362794fa99c493fd0534a307af"
 dependencies = [
  "image",
  "js-sys",
  "log",
  "pathfinder_geometry",
- "pathfinder_gpu 0.5.0 (git+https://github.com/servo/pathfinder/)",
+ "pathfinder_gpu",
  "pathfinder_renderer",
  "pathfinder_resources",
  "pathfinder_simd",
@@ -1694,9 +1685,9 @@ checksum = "c46a3482db8f247956e464d783693ece164ca056e6e67563ee5505bdb86452cd"
 
 [[package]]
 name = "smallvec"
-version = "1.4.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7cb5678e1615754284ec264d9bb5b4c27d2018577fd90ac0ceb578591ed5ee4"
+checksum = "3757cb9d89161a2f24e1cf78efa0c1fcff485d18e3f55e0aa3480824ddaa0f3f"
 
 [[package]]
 name = "smithay-client-toolkit"
@@ -1730,18 +1721,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "svg_derive"
-version = "0.1.0"
-dependencies = [
- "quote 1.0.7",
- "syn",
-]
-
-[[package]]
 name = "svg_dom"
 version = "0.1.0"
 dependencies = [
- "itertools 0.9.0",
+ "itertools",
  "libflate",
  "log",
  "nom",
@@ -1760,7 +1743,7 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "font",
- "itertools 0.9.0",
+ "itertools",
  "lazy_static",
  "libflate",
  "log",
@@ -1785,9 +1768,30 @@ name = "svg_text"
 version = "0.1.0"
 dependencies = [
  "font",
- "itertools 0.9.0",
+ "itertools",
+ "log",
  "pathfinder_content",
  "pathfinder_geometry",
+ "unicode-joining-type",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "svg_web"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "console_log",
+ "js-sys",
+ "log",
+ "pathfinder_geometry",
+ "pathfinder_renderer",
+ "pathfinder_resources",
+ "pathfinder_view",
+ "svg_dom",
+ "svg_draw",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -1855,6 +1859,12 @@ checksum = "49f2bd0c6468a8230e1db229cff8029217cf623c767ea5d60bfbd42729ea54d5"
 dependencies = [
  "matches",
 ]
+
+[[package]]
+name = "unicode-joining-type"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02423d2dcb2d46cbe5ea6c1f5ecef62fb2bff21f073348ad3bf5e0a9653ee1eb"
 
 [[package]]
 name = "unicode-segmentation"

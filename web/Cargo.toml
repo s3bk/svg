@@ -1,0 +1,28 @@
+[package]
+name = "svg_web"
+version = "0.1.0"
+authors = ["Sebastian K <s3bk@protonmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies.svg_dom]
+path = "../dom"
+
+[dependencies.svg_draw]
+path = "../draw"
+
+[dependencies]
+pathfinder_renderer = { git = "https://github.com/servo/pathfinder/" }
+pathfinder_geometry = { git = "https://github.com/servo/pathfinder/" }
+pathfinder_resources = { git = "https://github.com/servo/pathfinder/" }
+pathfinder_view = { git = "https://github.com/s3bk/pathfinder_view" }
+log = "0.4"
+console_error_panic_hook = "*"
+console_log = "*"
+web-sys = "*"
+wasm-bindgen = "*"
+js-sys = "*"
+
+[lib]
+crate-type = ["cdylib", "rlib"]

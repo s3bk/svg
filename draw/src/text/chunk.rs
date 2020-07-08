@@ -9,6 +9,7 @@ pub struct Chunk {
 }
 impl Chunk {
     pub fn new(text: &str, direction: TextFlow) -> Chunk {
+        debug!("split {}", text);
         let level = match direction {
             TextFlow::LeftToRight => Level::ltr(),
             TextFlow::RightToLeft => Level::rtl(),
@@ -17,7 +18,10 @@ impl Chunk {
         let para = &bidi_info.paragraphs[0];
         let line = para.range.clone();
         let (levels, runs) = bidi_info.visual_runs(para, line);
-        let runs = runs.into_iter().map(|run| (levels[run.start], run)).collect();
+        let runs: Vec<_> = runs.into_iter().map(|run| (levels[run.start], run)).collect();
+        for (_, run) in runs.iter() {
+            debug!(" - {}", &text[run.clone()]);
+        }
         Chunk {
             text: text.into(),
             runs
@@ -27,7 +31,7 @@ impl Chunk {
         let mut offset = 0.0;
         let mut parts = Vec::with_capacity(self.runs.len());
         for (level, run) in self.runs.iter() {
-            let layout = font.layout_run(&self.text[run.clone()], level.is_rtl());
+            let layout = font.layout_run(&self.text[run.clone()], level.is_rtl(), Some("FAR"));
 
             let advance = layout.metrics.advance;
             let (run_offset, next_offset) = match level.is_rtl() {

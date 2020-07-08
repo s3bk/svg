@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>SVG View</title>
+        <script type="text/javascript" src="pkg/svg_web.js"></script>
+        <link rel="stylesheet" type="text/css" href="style.css" />
+    </head>
+    <body>
+        <canvas id="canvas" tabindex="0"></canvas>
+        <script type="text/javascript" src="index.js"></script>
+        <div class="input">
+            <textarea id="svg-input" oninput="view_area_input(event)"></textarea>
+            <div id="drop">
+                <input type="file" id="file-selector" onchange="show(event.target.files[0])"></input>
+            </div>
+        </div>
+    </body>
+</html>

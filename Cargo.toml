@@ -4,7 +4,14 @@ members = [
     "dom",
     "draw",
     "text",
-    "derive",
+    "web",
+]
+
+default-members = [
+    "dom",
+    "draw",
+    "text",
+    "web"
 ]
 
 [patch.crates-io]
@@ -21,10 +28,14 @@ pathfinder_simd = { path = "../pathfinder/simd" }
 pathfinder_color = { path = "../pathfinder/color" }
 pathfinder_renderer = { path = "../pathfinder/renderer" }
 pathfinder_gl = { path = "../pathfinder/gl" }
+pathfinder_webgl = { path = "../pathfinder/webgl" }
 pathfinder_resources = { path = "../pathfinder/resources" }
 
 [patch."https://github.com/s3bk/pathfinder_view"]
 pathfinder_view = { path = "../pathfinder_view" }
+
+[patch."https://github.com/pdf-rs/font"]
+font = { path = "../font", features=["svg"] }
 
 [patch."https://github.com/s3bk/pathfinder_svg"]
 svg_dom = { path = "dom" }
