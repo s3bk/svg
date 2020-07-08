@@ -81,7 +81,6 @@ fn color_name(i: &str) -> IResult<&str, Color, ()> {
 fn rgb_color(i: &str) -> IResult<&str, Color, ()> {
     let (i, _) = tag("rgb(")(i)?;
     let (i, _) = space0(i)?;
-    let (i, _) = comma(i)?;
     let (i, r) = integer(i)?;
     let (i, _) = comma(i)?;
     let (i, g) = integer(i)?;
@@ -91,11 +90,16 @@ fn rgb_color(i: &str) -> IResult<&str, Color, ()> {
     let (i, _) = tag(")")(i)?;
     Ok((i, Color::from_srgb_u8(r, g, b)))
 }
+
+#[test]
+fn test_rgb_color() {
+    assert!(rgb_color("rgb(1,2,3)").is_ok());
+}
+
 // "rgb(" wsp* integer "%" comma integer "%" comma integer "%" wsp* ")"
 fn rgb_percent_color(i: &str) -> IResult<&str, Color, ()> {
     let (i, _) = tag("rgb(")(i)?;
     let (i, _) = space0(i)?;
-    let (i, _) = comma(i)?;
     let (i, r) = percent(i)?;
     let (i, _) = comma(i)?;
     let (i, g) = percent(i)?;
