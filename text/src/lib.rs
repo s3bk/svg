@@ -1,6 +1,6 @@
 #[macro_use] extern crate log;
 
-use font::{Glyph, GlyphId, SvgGlyph, gsub::{Gsub, Substitution, Tag, LanguageSystem}};
+use font::{Glyph, GlyphId, SvgGlyph, opentype::{OpenTypeFont, gsub::{Gsub, Substitution, Tag, LanguageSystem}}};
 use pathfinder_geometry::{
     vector::{Vector2F, vec2f},
     transform2d::Transform2F,
@@ -108,7 +108,11 @@ impl MetaGlyph {
 }
 
 fn compute_joining(meta: &mut [MetaGlyph]) {
-    for (prev, next) in meta.iter_mut().tuples() {
+    for i in 1 .. meta.len() {
+        let (prev, next) = meta.split_at_mut(i);
+        let prev = &mut prev[i - 1];
+        let next = &mut next[0];
+        
         match prev.joining_type {
             JoiningType::LeftJoining | JoiningType::DualJoining | JoiningType::JoinCausing => {
                 match next.joining_type {
@@ -162,7 +166,8 @@ fn process_chunk(font: &Font, language: Option<&str>, rtl: bool, meta: &[MetaGly
         .map(|m| font.gid_for_unicode_codepoint(m.codepoint as u32).unwrap())
         .collect();
 
-    if let Some(gsub) = font.get_gsub() {
+    let gsub = font.downcast::<OpenTypeFont>().and_then(|ot| ot.gsub.as_ref());
+    if let Some(gsub) = gsub {
         if let Some(lang) = language.and_then(|s| gsub.language(s)).or(gsub.default_language()) {
             sub_pass(gsub, lang, meta, &mut gids, |m| {
                 let arabic_tag = match m.location {
