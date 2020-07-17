@@ -19,7 +19,7 @@ pathfinder_content = { git = "https://github.com/servo/pathfinder/" }
 pathfinder_renderer = { git = "https://github.com/servo/pathfinder/" }
 pathfinder_color = { git = "https://github.com/servo/pathfinder/" }
 pathfinder_simd = { git = "https://github.com/servo/pathfinder/" }
-font = { git="https://github.com/pdf-rs/font", branch="dev", features=["svg"] }
+font = { git="https://github.com/pdf-rs/font", features=["svg"] }
 lazy_static = { version = "1.4.0" }
 palette = "0.5.0"
 nom = "5.1.2"

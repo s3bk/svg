@@ -5,7 +5,7 @@ authors = ["Sebastian K <s3bk@protonmail.com>"]
 edition = "2018"
 
 [dependencies]
-font = { git = "https://github.com/pdf-rs/font", branch = "dev", features = ["svg"] }
+font = { git = "https://github.com/pdf-rs/font", features = ["svg"] }
 pathfinder_geometry = { git = "https://github.com/servo/pathfinder/" }
 pathfinder_content = { git = "https://github.com/servo/pathfinder/" }
 itertools = "0.9.0"
