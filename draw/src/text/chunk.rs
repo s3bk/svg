@@ -1,6 +1,7 @@
 use unicode_bidi::{Level, LevelRun, BidiInfo};
 use svg_text::{FontCollection, Layout};
 use svg_dom::TextFlow;
+use pathfinder_geometry::vector::Vector2F;
 
 /// basic unit of text
 pub struct Chunk {
@@ -28,7 +29,7 @@ impl Chunk {
         }
     }
     pub fn layout(&self, font: &FontCollection) -> ChunkLayout {
-        let mut offset = 0.0;
+        let mut offset = Vector2F::zero();
         let mut parts = Vec::with_capacity(self.runs.len());
         for (level, run) in self.runs.iter() {
             let layout = font.layout_run(&self.text[run.clone()], level.is_rtl(), Some("FAR"));
@@ -46,6 +47,6 @@ impl Chunk {
     }
 }
 pub struct ChunkLayout {
-    pub parts: Vec<(usize, f32, Layout)>,
-    pub advance: f32,
+    pub parts: Vec<(usize, Vector2F, Layout)>,
+    pub advance: Vector2F,
 }

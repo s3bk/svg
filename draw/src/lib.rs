@@ -142,6 +142,13 @@ impl DrawSvg {
         scene
     }
 
+    pub fn compose_to_with_transform(&self, scene: &mut Scene, transform: Transform2F) {
+        let ctx = self.ctx();
+        let mut options = DrawOptions::new(&ctx);
+        options.transform = transform;
+        self.svg.root.draw_to(scene, &options);
+    }
+
     /// get the viewbox (computed if missing)
     pub fn view_box(&self) -> Option<RectF> {
         let ctx = self.ctx();

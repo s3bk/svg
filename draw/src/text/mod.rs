@@ -116,7 +116,7 @@ fn draw_layout(layout: &ChunkLayout, scene: &mut Scene, options: &DrawOptions, s
         for &(ref glyph_variant, glyph_tr, glyph_offset) in &sublayout.glyphs {
             let chunk_tr = Transform2F::from_translation(state.pos) * Transform2F::from_rotation(deg2rad(state.rot))
                 * Transform2F::from_scale(options.font_size)
-                * Transform2F::from_translation(vec2f(offset + glyph_offset, 0.0));
+                * Transform2F::from_translation(offset + glyph_offset);
             let tr = chunk_tr * glyph_tr;
             if let Some(ref svg) = glyph_variant.svg {
                 draw_glyph(svg, scene, tr);
@@ -125,7 +125,7 @@ fn draw_layout(layout: &ChunkLayout, scene: &mut Scene, options: &DrawOptions, s
             }
         }
     }
-    vec2f(layout.advance * options.font_size, 0.0)
+    layout.advance * options.font_size
 }
 
 fn slice<T>(o: &Option<OneOrMany<T>>) -> &[T] {

@@ -1,6 +1,12 @@
 #[macro_use] extern crate log;
 
-use font::{Glyph, GlyphId, SvgGlyph, opentype::{OpenTypeFont, gsub::{Gsub, Substitution, Tag, LanguageSystem}}};
+use font::{Glyph, GlyphId, SvgGlyph,
+    opentype::{
+        OpenTypeFont,
+        gsub::{GSub, Substitution, Tag, LanguageSystem},
+        gdef::MarkClass,
+    }
+};
 use pathfinder_geometry::{
     vector::{Vector2F, vec2f},
     transform2d::Transform2F,
@@ -95,7 +101,7 @@ impl GlyphLocation {
 struct MetaGlyph {
     codepoint: char,
     joining_type: JoiningType,
-    location: GlyphLocation
+    location: GlyphLocation,
 }
 impl MetaGlyph {
     fn new(codepoint: char) -> MetaGlyph {
@@ -145,7 +151,7 @@ fn compute_joining(meta: &mut [MetaGlyph]) {
     }
 }
 
-fn sub_pass<F, G>(gsub: &Gsub, lang: &LanguageSystem, meta: &[MetaGlyph], gids: &mut Vec<GlyphId>, filter_fn: F)
+fn sub_pass<F, G>(gsub: &GSub, lang: &LanguageSystem, meta: &[MetaGlyph], gids: &mut Vec<GlyphId>, filter_fn: F)
     where F: Fn(&MetaGlyph) -> G, G: Fn(Tag) -> bool
 {
     let mut pos = 0;
@@ -159,6 +165,18 @@ fn sub_pass<F, G>(gsub: &Gsub, lang: &LanguageSystem, meta: &[MetaGlyph], gids: 
 }
 
 fn process_chunk(font: &Font, language: Option<&str>, rtl: bool, meta: &[MetaGlyph], state: &mut State) {
+    if let Some(fm) = font.vmetrics() {
+        let s = font.font_matrix().m22();
+        let vm = VMetrics {
+            ascent: fm.ascent * s,
+            descent: fm.descent * s
+        };
+        state.vmetrics = match state.vmetrics {
+            None => Some(vm),
+            Some(m1) => Some(VMetrics { ascent: m1.ascent.max(vm.ascent), descent: m1.descent.min(vm.descent) })
+        };
+    }
+
     for g in meta {
         debug!("[\u{2068}{}\u{2069} 0x{:x}]", g.codepoint, g.codepoint as u32);
     }
@@ -166,7 +184,11 @@ fn process_chunk(font: &Font, language: Option<&str>, rtl: bool, meta: &[MetaGly
         .map(|m| font.gid_for_unicode_codepoint(m.codepoint as u32).unwrap())
         .collect();
 
-    let gsub = font.downcast::<OpenTypeFont>().and_then(|ot| ot.gsub.as_ref());
+    let otf = font.downcast::<OpenTypeFont>();
+    let gsub = otf.and_then(|f| f.gsub.as_ref());
+    let gdef = otf.and_then(|f| f.gdef.as_ref());
+    let gpos = otf.and_then(|f| f.gpos.as_ref());
+
     if let Some(gsub) = gsub {
         if let Some(lang) = language.and_then(|s| gsub.language(s)).or(gsub.default_language()) {
             sub_pass(gsub, lang, meta, &mut gids, |m| {
@@ -185,12 +207,26 @@ fn process_chunk(font: &Font, language: Option<&str>, rtl: bool, meta: &[MetaGly
     let mut last_gid = None;
     for gid in gids {
         if let Some(glyph) = font.glyph(gid) {
-            let kerning = last_gid.replace(gid).map(|left| font.kerning(left, gid)).unwrap_or_default();
-            let tr = Transform2F::from_translation(vec2f(0.0, 0.0)) * Transform2F::from_scale(vec2f(1.0, -1.0)) * font.font_matrix();
-            let advance = tr.m11() * glyph.metrics.advance + kerning;
-            let (advance, glyph_offset) = match rtl {
-                false => (advance, state.offset + kerning),
-                true => (- advance, state.offset - advance)
+            let mark = match (gdef.and_then(|gdef| gdef.mark_class(gid.0 as u16)).unwrap_or(MarkClass::Unassigned), last_gid) {
+                (MarkClass::Mark, Some(last)) => {
+                    gpos.and_then(|gpos| gpos.get_mark_to_base(last, gid))
+                },
+                _ => None
+            };
+
+            let (advance, glyph_offset) = match mark {
+                None => {
+                    let kerning = vec2f(last_gid.replace(gid).map(|left| font.kerning(left, gid)).unwrap_or_default(), 0.0);
+                    let advance = font.font_matrix() * (vec2f(glyph.metrics.advance, 0.0) + kerning);
+                    match rtl {
+                        false => (advance, state.offset + kerning),
+                        true => (advance * vec2f(-1.0, 1.0), state.offset - advance)
+                    }
+                }
+                Some((dx, dy)) => {
+                    let delta = font.font_matrix() * vec2f(dx as f32, dy as f32);
+                    (Vector2F::zero(), state.offset + delta)
+                }
             };
 
             let svg = font.svg_glyph(gid).cloned();
@@ -199,24 +235,36 @@ fn process_chunk(font: &Font, language: Option<&str>, rtl: bool, meta: &[MetaGly
                 svg
             };
 
+            let tr = Transform2F::from_scale(vec2f(1.0, -1.0)) * font.font_matrix();
             state.offset += advance;
             state.glyphs.push((glyph, tr, glyph_offset));
         }
     }
 }
 
+#[derive(Copy, Clone)]
+struct VMetrics {
+    ascent: f32,
+    descent: f32,
+}
+
 struct State {
-    glyphs: Vec<(GlyphVariant, Transform2F, f32)>,
-    offset: f32
+    glyphs: Vec<(GlyphVariant, Transform2F, Vector2F)>,
+    offset: Vector2F,
+    vmetrics: Option<VMetrics>
 }
 
 impl FontCollection {
     pub fn layout_run(&self, string: &str, rtl: bool, lang: Option<&str>) -> Layout {
         let fonts = &*self.fonts;
+        if fonts.len() == 0 {
+            println!("no fonts!");
+        }
 
         let mut state = State {
-            offset: 0.0,
-            glyphs: Vec::with_capacity(string.len())
+            offset: Vector2F::zero(),
+            glyphs: Vec::with_capacity(string.len()),
+            vmetrics: None,
         };
 
         let font_for_text = |text: &str| fonts.iter()
@@ -253,15 +301,23 @@ impl FontCollection {
         }
 
 
-        let bbox: RectF = state.glyphs.iter().map(|&(ref glyph, tr, offset)| Transform2F::from_translation(Vector2F::new(offset, 0.0)) * tr * glyph.common.path.bounds()).fold1(|a, b| a.union_rect(b)).unwrap_or_default();
+        let bbox: RectF = state.glyphs.iter()
+            .map(|&(ref glyph, tr, offset)| Transform2F::from_translation(offset) * tr * glyph.common.path.bounds())
+            .fold1(|a, b| a.union_rect(b)).unwrap_or_default();
         let (font_bounding_box_ascent, font_bounding_box_descent) = fonts.iter().filter_map(
-            |f| f.vmetrics().map(|m| (m.ascent, m.descent))
+            |f| {
+                let s = f.font_matrix().m22();
+                f.vmetrics().map(|m| (s * m.ascent, s * m.descent))
+            }
         ).fold1(|(a1, d1), (a2, d2)| (a1.max(a2), d1.min(d2))).unwrap_or((0., 0.));
 
+        let vmetrics = state.vmetrics.unwrap_or(VMetrics { ascent: 0.0, descent: 0.0 });
         let metrics = TextMetrics {
             advance: state.offset,
             font_bounding_box_ascent,
             font_bounding_box_descent,
+            ascent: vmetrics.ascent,
+            descent: vmetrics.descent,
         };
         Layout {
             bbox,
@@ -279,11 +335,13 @@ pub struct GlyphVariant {
 pub struct Layout {
     pub metrics: TextMetrics,
     pub bbox: RectF,
-    pub glyphs: Vec<(GlyphVariant, Transform2F, f32)>
+    pub glyphs: Vec<(GlyphVariant, Transform2F, Vector2F)>
 }
 
 pub struct TextMetrics {
-    pub advance: f32,
+    pub advance: Vector2F,
     pub font_bounding_box_ascent: f32,
-    pub font_bounding_box_descent: f32
+    pub font_bounding_box_descent: f32,
+    pub ascent: f32,
+    pub descent: f32,
 }
