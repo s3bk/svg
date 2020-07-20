@@ -26,13 +26,5 @@ impl DrawItem for TagPath {
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
         let options = options.apply(&self.attrs);
         options.draw(scene, &self.outline);
-
-        #[cfg(feature="debug")]
-        if options.debug {
-            let mut options = options.clone();
-            options.fill = Some(Paint::black());
-            options.stroke = None;
-            self.debug.draw(scene, &options);
-        }
     }
 }

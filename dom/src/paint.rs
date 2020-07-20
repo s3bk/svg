@@ -35,6 +35,10 @@ impl Parse for Color {
         parse_color(s)
     }
 }
+#[test]
+fn test_color() {
+    assert_eq!(Color::parse("#aabbcc").unwrap(), Color::from_srgb_u8(0xaa, 0xbb, 0xcc));
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Paint {
@@ -60,4 +64,8 @@ impl Parse for Paint {
     fn parse(s: &str) -> Result<Self, Error> {
         parse_paint(s)
     }
+}
+#[test]
+fn test_paint() {
+    assert_eq!(Paint::parse("#aabbcc").unwrap(), Paint::Color(Color::from_srgb_u8(0xaa, 0xbb, 0xcc)));
 }

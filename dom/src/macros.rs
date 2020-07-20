@@ -78,6 +78,14 @@ macro_rules! parse {
             let val = attribute.value();
             match attribute.name() {
                 $( parse!(@name $var $( ($name) )?) => $var = parse!(@parse val $(,$parser)? )?, )*
+                "style" => {
+                    for (key, val) in $crate::util::style_list(val) {
+                        match key {
+                            $( parse!(@name $var $( ($name) )?) => $var = parse!(@parse val $(,$parser)? )?, )*
+                            _ => {}
+                        }
+                    }
+                }
                 _ => {}
             }
         }

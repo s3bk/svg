@@ -91,11 +91,6 @@ fn rgb_color(i: &str) -> IResult<&str, Color, ()> {
     Ok((i, Color::from_srgb_u8(r, g, b)))
 }
 
-#[test]
-fn test_rgb_color() {
-    assert!(rgb_color("rgb(1,2,3)").is_ok());
-}
-
 // "rgb(" wsp* integer "%" comma integer "%" comma integer "%" wsp* ")"
 fn rgb_percent_color(i: &str) -> IResult<&str, Color, ()> {
     let (i, _) = tag("rgb(")(i)?;
@@ -118,6 +113,12 @@ pub fn color(i: &str) -> IResult<&str, Color, ()> {
         rgb_percent_color,
         color_name
     ))(i)
+}
+
+#[test]
+fn test_color() {
+    assert!(color("rgb(1,2,3)").is_ok());
+    assert_eq!(color("#012345").unwrap().1, Color::from_srgb_u8(0x01, 0x23, 0x45));
 }
 
 static COLOR_NAMES: &[(&str, (u8, u8, u8))] = &[
