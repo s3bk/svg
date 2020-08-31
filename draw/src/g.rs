@@ -23,7 +23,7 @@ fn draw_items(scene: &mut Scene, items: &[Arc<Item>], attrs: &Attrs, options: &D
 
     let options = options.apply(attrs);
 
-    if let Some(ref filter_id) = attrs.filter {
+    if let Some(Iri(ref filter_id)) = attrs.filter {
         let bounds = get_or_return!(max_bounds(items.iter().flat_map(|item| item.bounds(&options))));
 
         match options.ctx.resolve(&filter_id).map(|i| &**i) {
@@ -35,7 +35,7 @@ fn draw_items(scene: &mut Scene, items: &[Arc<Item>], attrs: &Attrs, options: &D
                 });
                 return;
             },
-            r => println!("expected filter, got {:?}", r)
+            r => println!("expected filter for {:?}, got {:?}", filter_id, r)
         }
     }
 

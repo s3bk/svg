@@ -133,7 +133,8 @@ pub fn href(node: &Node) -> Option<String> {
     node.attribute((xlink, "href")).map(|s| s.to_owned())
 }
 
-pub struct Iri(String);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Iri(pub String);
 impl Parse for Iri {
     fn parse(s: &str) -> Result<Self, Error> {
         match crate::parser::func_iri(s) {

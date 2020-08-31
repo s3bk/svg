@@ -35,6 +35,6 @@ impl DrawItem for TagRect {
         
         let origin = self.pos.resolve(&options);
 
-        Some(RectF::new(origin, size))
+        options.bounds(RectF::new(origin, size))
     }
 }

@@ -7,11 +7,12 @@ use std::fmt;
 use svg_text::{Font, FontCollection};
 use chunk::{Chunk, ChunkLayout};
 use crate::draw_glyph;
-use unicode_segmentation::UnicodeSegmentation;
+use unic_segment::{WordBounds, GraphemeIndices};
 
 lazy_static! {
     static ref LATIN_MODERN: Font = Font::load(include_bytes!("../../../resources/latinmodern-math.otf"));
     static ref NOTO_NASKH_ARABIC: Font = Font::load(include_bytes!("../../../resources/NotoNaskhArabic-Regular.ttf"));
+    static ref NOTO_SERIF_BENGALI: Font = Font::load(include_bytes!("../../../resources/NotoSerifBengali-Regular.ttf"));
 }
 
 
@@ -30,7 +31,11 @@ impl FontCache {
     pub fn new() -> Self {
         FontCache {
             entries: Arc::new(Mutex::new(HashMap::new())),
-            fallback: Arc::new(FontCollection::from_fonts(vec![LATIN_MODERN.clone(), NOTO_NASKH_ARABIC.clone()])),
+            fallback: Arc::new(FontCollection::from_fonts(vec![
+                LATIN_MODERN.clone(),
+                NOTO_NASKH_ARABIC.clone(),
+                NOTO_SERIF_BENGALI.clone(),
+            ])),
         }
     }
 }
@@ -69,7 +74,7 @@ impl TextState {
 
 fn chunk(scene: &mut Scene, options: &DrawOptions, s: &str, state: TextState, font: &FontCollection) -> Vector2F {
     debug!("{} {:?}", s, state);
-    let layout = Chunk::new(s, options.direction).layout(font);
+    let layout = Chunk::new(s, options.direction).layout(font, options.lang);
     draw_layout(&layout, scene, &options, state)
 }
 
@@ -81,7 +86,7 @@ fn draw_items(scene: &mut Scene, options: &DrawOptions, pos: &GlyphPos, items: &
         match **item {
             Item::String(ref s) if s.len() > 0 => {
                 let mut start = 0;
-                for (idx, grapheme) in s.grapheme_indices(true) {
+                for (idx, grapheme) in GraphemeIndices::new(s) {
                     let num_chars = grapheme.chars().count();
                     if let Some(next_move) = moves.get(&options, num_chars, char_idx) {
                         if idx > 0 {

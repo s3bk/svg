@@ -4,6 +4,7 @@ use pathfinder_content::{
     fill::{FillRule}
 };
 use svgtypes::{Length};
+use whatlang::Lang;
 
 #[derive(Debug, Clone)]
 pub struct Attrs {
@@ -18,9 +19,10 @@ pub struct Attrs {
     pub stroke_width: Value<Option<Length>>,
     pub stroke_opacity: Value<Option<f32>>,
     pub display: bool,
-    pub filter: Option<String>,
+    pub filter: Option<Iri>,
     pub font_size: Value<Option<LengthY>>,
     pub direction: Option<TextFlow>,
+    pub lang: Option<Lang>,
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +40,13 @@ impl Parse for Stroke {
         Ok(Stroke((inherit(Paint::parse))(s)?))
     }
 }
+
+impl Parse for Lang {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Lang::from_code(s).ok_or_else(|| Error::InvalidAttributeValue(s.into()))
+    }
+}
+
 impl Attrs {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Attrs, Error> {
         parse!(node => {
@@ -52,9 +61,10 @@ impl Attrs {
             anim stroke_width ("stroke-width"): Value<Option<Length>>,
             anim stroke_opacity ("stroke-opacity"): Value<Option<f32>>,
             var display: bool = true => parse_display,
-            var filter: Option<String>,
+            var filter: Option<Iri>,
             anim font_size ("font-size"): Value<Option<LengthY>>,
             var direction: Option<TextFlow>,
+            var lang: Option<Lang>,
         });
         Ok(Attrs {
             clip_path,
@@ -71,6 +81,7 @@ impl Attrs {
             filter,
             font_size,
             direction,
+            lang,
         })
     }
 }

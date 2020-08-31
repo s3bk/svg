@@ -2,8 +2,8 @@
 
 use font::{Glyph, GlyphId, SvgGlyph,
     opentype::{
-        OpenTypeFont,
-        gsub::{GSub, Substitution, Tag, LanguageSystem},
+        OpenTypeFont, Tag,
+        gsub::{GSub, Substitution, LanguageSystem},
         gdef::MarkClass,
     }
 };
@@ -14,8 +14,10 @@ use pathfinder_geometry::{
 };
 use std::sync::Arc;
 use itertools::Itertools;
-use unicode_segmentation::UnicodeSegmentation;
+use unic_segment::{WordBounds, GraphemeIndices};
+use unic_ucd_category::GeneralCategory;
 use unicode_joining_type::{get_joining_type, JoiningType};
+use whatlang::Lang;
 
 #[derive(Clone)]
 pub struct Font(Arc<dyn font::Font + Sync + Send>);
@@ -102,13 +104,15 @@ struct MetaGlyph {
     codepoint: char,
     joining_type: JoiningType,
     location: GlyphLocation,
+    category: GeneralCategory,
 }
 impl MetaGlyph {
     fn new(codepoint: char) -> MetaGlyph {
         MetaGlyph {
             codepoint,
             joining_type: get_joining_type(codepoint),
-            location: GlyphLocation::Isolated
+            location: GlyphLocation::Isolated,
+            category: GeneralCategory::of(codepoint),
         }
     }
 }
@@ -164,7 +168,7 @@ fn sub_pass<F, G>(gsub: &GSub, lang: &LanguageSystem, meta: &[MetaGlyph], gids: 
     }
 }
 
-fn process_chunk(font: &Font, language: Option<&str>, rtl: bool, meta: &[MetaGlyph], state: &mut State) {
+fn process_chunk(font: &Font, language: Option<Tag>, rtl: bool, meta: &[MetaGlyph], state: &mut State) {
     if let Some(fm) = font.vmetrics() {
         let s = font.font_matrix().m22();
         let vm = VMetrics {
@@ -181,6 +185,10 @@ fn process_chunk(font: &Font, language: Option<&str>, rtl: bool, meta: &[MetaGly
         debug!("[\u{2068}{}\u{2069} 0x{:x}]", g.codepoint, g.codepoint as u32);
     }
     let mut gids: Vec<GlyphId> = meta.iter()
+        .filter(|m| match m.category {
+            GeneralCategory::Format => false,
+            _ => true
+        })
         .map(|m| font.gid_for_unicode_codepoint(m.codepoint as u32).unwrap())
         .collect();
 
@@ -254,8 +262,24 @@ struct State {
     vmetrics: Option<VMetrics>
 }
 
+fn font_for_text<'a>(fonts: &'a [Font], text: &str, meta: &[MetaGlyph]) -> Option<&'a Font> {
+    fonts.iter()
+        .filter(|font|
+            text.chars().zip(meta).all(|(c, m)| {
+                match m.category {
+                    GeneralCategory::Format => true,
+                    _ => font.gid_for_unicode_codepoint(c as u32).is_some()
+                }
+            })
+        ).next()
+}
+
 impl FontCollection {
-    pub fn layout_run(&self, string: &str, rtl: bool, lang: Option<&str>) -> Layout {
+    pub fn layout_run(&self, string: &str, rtl: bool, lang: Option<Lang>) -> Layout {
+        let t0 = std::time::Instant::now();
+
+        let lang = lang.and_then(tags::lang_to_tag).or(guess_lang(string));
+
         let fonts = &*self.fonts;
         if fonts.len() == 0 {
             println!("no fonts!");
@@ -267,35 +291,36 @@ impl FontCollection {
             vmetrics: None,
         };
 
-        let font_for_text = |text: &str| fonts.iter()
-            .filter(|font|
-                text.chars().all(|c| font.gid_for_unicode_codepoint(c as u32).is_some())
-            ).next();
-
         // we process each word separately to improve the visual appearance by trying to render a word in a single font
-        for word in string.split_word_bounds() {
+        for word in WordBounds::new(string) {
             // do stuff… borrowed from allsorts
             let mut meta: Vec<MetaGlyph> = word.chars().map(|c| MetaGlyph::new(c)).collect();
             compute_joining(&mut meta);
             
             // try to find a font that has all glyphs
-            if let Some(font) = font_for_text(word) {
+            if let Some(font) = font_for_text(fonts, word, &meta) {
                 process_chunk(font, lang, rtl, &meta, &mut state);
             } else {
                 let mut start = 0;
+                let mut meta_idx = 0;
                 let mut current_font = None;
-                for (idx, grapheme) in word.grapheme_indices(true) {
-                    if let Some(font) = font_for_text(grapheme) {
+                for (idx, grapheme) in GraphemeIndices::new(word) {
+                    let meta_len = grapheme.chars().count();
+                    if let Some(font) = font_for_text(fonts, grapheme, &meta[meta_idx .. meta_idx + meta_len]) {
                         if Some(font as *const _) != current_font.map(|f| f as *const _) && idx > 0 {
                             // flush so far
                             process_chunk(font, lang, rtl, &meta[start .. idx], &mut state);
                             start = idx;
                         }
                         current_font = Some(font);
+                    } else {
+                        current_font = None;
+                        println!("no font for {:?}", grapheme);
                     }
+                    meta_idx += meta_len;
                 }
                 if let Some(font) = current_font {
-                    process_chunk(font, lang, rtl, &meta[start ..], &mut state);
+                    process_chunk(font, lang, rtl, &meta[meta_idx ..], &mut state);
                 }
             }
         }
@@ -319,12 +344,25 @@ impl FontCollection {
             ascent: vmetrics.ascent,
             descent: vmetrics.descent,
         };
+
+        println!("layout for {:?}: {:?}", string, t0.elapsed());
         Layout {
             bbox,
             glyphs: state.glyphs,
             metrics,
         }
     }
+}
+
+mod tags;
+
+fn guess_lang(text: &str) -> Option<Tag> {
+    if let Some(info) = whatlang::detect(text) {
+        tags::lang_to_tag(info.lang())
+    } else {
+        None
+    }
+
 }
 
 pub struct GlyphVariant {

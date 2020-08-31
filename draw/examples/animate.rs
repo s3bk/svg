@@ -11,15 +11,15 @@ struct AnimatedSvg {
 }
 
 impl Interactive for AnimatedSvg {
-    fn num_pages(&self) -> usize { 1 }
     fn init(&mut self, ctx: &mut Context, sender: Emitter<Self::Event>) {
         self.start = Instant::now();
         ctx.update_interval = Some(0.02);
+        ctx.num_pages = 1;
     }
     fn idle(&mut self, ctx: &mut Context) {
-        ctx.update_scene();
+        ctx.request_redraw();
     }
-    fn scene(&mut self, _: usize) -> Scene {
+    fn scene(&mut self, ctx: &mut Context) -> Scene {
         let ctx = self.svg.ctx();
         let mut options = DrawOptions::new(&ctx);
         options.time = Time::from_seconds(self.start.elapsed().as_secs_f64());

@@ -9,6 +9,8 @@ font = { git = "https://github.com/pdf-rs/font", features = ["svg"] }
 pathfinder_geometry = { git = "https://github.com/servo/pathfinder/" }
 pathfinder_content = { git = "https://github.com/servo/pathfinder/" }
 itertools = "0.9.0"
-unicode-segmentation = "1.6"
 unicode-joining-type = "0.3"
+unic-ucd-category = "0.9"
+unic-segment = "0.9"
 log = "0.4"
+whatlang = "0.9"

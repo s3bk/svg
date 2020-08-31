@@ -13,6 +13,7 @@ use svgtypes::{Length};
 use std::sync::Arc;
 use crate::gradient::BuildGradient;
 use crate::text::FontCache;
+use whatlang::Lang;
 
 #[derive(Clone, Debug)]
 pub struct DrawContext<'a> {
@@ -78,6 +79,8 @@ pub struct DrawOptions<'a> {
 
     pub font_size: f32,
     pub direction: TextFlow,
+
+    pub lang: Option<Lang>,
 }
 impl<'a> DrawOptions<'a> {
     pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {
@@ -101,6 +104,7 @@ impl<'a> DrawOptions<'a> {
             time: Time::start(),
             font_size: 20.,
             direction: TextFlow::LeftToRight,
+            lang: None,
         }
     }
     pub fn bounds(&self, rect: RectF) -> Option<RectF> {
@@ -204,6 +208,7 @@ impl<'a> DrawOptions<'a> {
             #[cfg(feature="debug")]
             debug_font: self.debug_font.clone(),
             font_size: attrs.font_size.resolve(self).unwrap_or(self.font_size),
+            lang: attrs.lang.or(self.lang),
             .. *self
         };
         debug!("fill {:?} + {:?} -> {:?}", self.fill, attrs.fill, new.fill);
