@@ -10,6 +10,8 @@ use pathfinder_geometry::{
     transform2d::Transform2F,
     rect::RectF,
 };
+use svg_text::{FontCollection, Font};
+use std::sync::Arc;
 
 fn main() {
     env_logger::init();
@@ -20,8 +22,15 @@ fn main() {
     let mut config = Config::new(Box::new(resource_loader));
     config.zoom = true;
     config.pan = true;
+
+    let fonts = Arc::new(FontCollection::from_fonts(vec![
+        Font::load(include_bytes!("../../resources/latinmodern-math.otf")),
+        Font::load(include_bytes!("../../resources/NotoNaskhArabic-Regular.ttf")),
+        Font::load(include_bytes!("../../resources/NotoSerifBengali-Regular.ttf")),
+    ]));
+
     let svg = Svg::from_data(&data).unwrap();
-    show(View::new(svg), config)
+    show(View::new(svg, fonts), config)
 }
 
 struct View {
@@ -29,8 +38,8 @@ struct View {
     view_box: Option<RectF>
 }
 impl View {
-    fn new(svg: Svg) -> View {
-        let svg = DrawSvg::new(svg);
+    fn new(svg: Svg, fonts: Arc<FontCollection>) -> View {
+        let svg = DrawSvg::new(svg, fonts);
         let view_box = svg.view_box();
         View {
             svg, view_box

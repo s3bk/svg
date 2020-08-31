@@ -12,8 +12,9 @@ use pathfinder_color::ColorU;
 use svgtypes::{Length};
 use std::sync::Arc;
 use crate::gradient::BuildGradient;
-use crate::text::FontCache;
+use crate::text::{FontCache};
 use whatlang::Lang;
+use svg_text::FontCollection;
 
 #[derive(Clone, Debug)]
 pub struct DrawContext<'a> {
@@ -29,7 +30,7 @@ pub struct DrawContext<'a> {
     pub font_cache: FontCache,
 }
 impl<'a> DrawContext<'a> {
-    pub fn new(svg: &'a Svg) -> Self {
+    pub fn new(svg: &'a Svg, fallback_fonts: Arc<FontCollection>) -> Self {
         DrawContext {
             svg,
             dpi: 75.0,
@@ -39,7 +40,7 @@ impl<'a> DrawContext<'a> {
             #[cfg(feature="debug")]
             debug: false,
 
-            font_cache: FontCache::new(),
+            font_cache: FontCache::new(fallback_fonts),
         }
     }
     pub fn resolve(&self, id: &str) -> Option<&Arc<Item>> {

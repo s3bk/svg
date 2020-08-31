@@ -9,13 +9,6 @@ use chunk::{Chunk, ChunkLayout};
 use crate::draw_glyph;
 use unic_segment::{WordBounds, GraphemeIndices};
 
-lazy_static! {
-    static ref LATIN_MODERN: Font = Font::load(include_bytes!("../../../resources/latinmodern-math.otf"));
-    static ref NOTO_NASKH_ARABIC: Font = Font::load(include_bytes!("../../../resources/NotoNaskhArabic-Regular.ttf"));
-    static ref NOTO_SERIF_BENGALI: Font = Font::load(include_bytes!("../../../resources/NotoSerifBengali-Regular.ttf"));
-}
-
-
 #[derive(Clone)]
 pub struct FontCache {
     // TODO: use a lock-free map
@@ -28,14 +21,10 @@ impl fmt::Debug for FontCache {
     }
 }
 impl FontCache {
-    pub fn new() -> Self {
+    pub fn new(fallback: Arc<FontCollection>) -> Self {
         FontCache {
             entries: Arc::new(Mutex::new(HashMap::new())),
-            fallback: Arc::new(FontCollection::from_fonts(vec![
-                LATIN_MODERN.clone(),
-                NOTO_NASKH_ARABIC.clone(),
-                NOTO_SERIF_BENGALI.clone(),
-            ])),
+            fallback,
         }
     }
 }

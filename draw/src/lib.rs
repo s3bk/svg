@@ -40,6 +40,9 @@ mod paint;
 
 pub use prelude::*;
 
+use svg_text::FontCollection;
+use std::sync::Arc;
+
 pub trait Resolve {
     type Output;
     fn resolve(&self, options: &DrawOptions) -> Self::Output;
@@ -114,11 +117,12 @@ draw_items!(
 );
 
 pub struct DrawSvg {
-    svg: Svg
+    svg: Svg,
+    fallback_fonts: Arc<FontCollection>,
 }
 impl DrawSvg {
-    pub fn new(svg: Svg) -> DrawSvg {
-        DrawSvg { svg }
+    pub fn new(svg: Svg, fallback_fonts: Arc<FontCollection>) -> DrawSvg {
+        DrawSvg { svg, fallback_fonts }
     }
     pub fn compose(&self) -> Scene {
         self.compose_with_transform(Transform2F::default())
@@ -166,13 +170,13 @@ impl DrawSvg {
     }
 
     pub fn ctx(&self) -> DrawContext {
-        DrawContext::new(&self.svg)
+        DrawContext::new(&self.svg, self.fallback_fonts.clone())
     }
 }
 
 use font::SvgGlyph;
 pub fn draw_glyph(glyph: &SvgGlyph, scene: &mut Scene, transform: Transform2F) {
-    let ctx = DrawContext::new(&*glyph.svg);
+    let ctx = DrawContext::new(&*glyph.svg, Arc::new(FontCollection::new()));
     let mut options = DrawOptions::new(&ctx);
     options.transform = transform * Transform2F::from_scale(Vector2F::new(1.0, -1.0));
     glyph.item.draw_to(scene, &options);

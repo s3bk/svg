@@ -4,6 +4,8 @@ use pathfinder_resources::embedded::EmbeddedResourceLoader;
 use svg_dom::{Svg, Time};
 use svg_draw::{DrawSvg, DrawOptions, DrawContext};
 use std::time::Instant;
+use svg_text::{Font, FontCollection};
+use std::sync::Arc;
 
 struct AnimatedSvg {
     svg: DrawSvg,
@@ -34,9 +36,16 @@ fn main() {
     let mut config = Config::new(Box::new(EmbeddedResourceLoader));
     config.zoom = true;
     config.pan = false;
+
+    let fonts = Arc::new(FontCollection::from_fonts(vec![
+        Font::load(include_bytes!("../../resources/latinmodern-math.otf")),
+        Font::load(include_bytes!("../../resources/NotoNaskhArabic-Regular.ttf")),
+        Font::load(include_bytes!("../../resources/NotoSerifBengali-Regular.ttf")),
+    ]));
+
     let svg = Svg::from_data(&data).unwrap();
     show(AnimatedSvg {
-        svg: DrawSvg::new(svg),
+        svg: DrawSvg::new(svg, fonts),
         start: Instant::now()
     }, config)
 }
