@@ -53,23 +53,23 @@ impl FontCollection {
 }
 
 // returns (next pos, length change of glyphs)
-fn apply_subs<'a, 'b>(glyphs: &'a mut Vec<GlyphId>, pos: usize, subs: impl Iterator<Item=&'b Substitution>) -> (usize, isize) {
+fn apply_subs<'a, 'b>(glyphs: &'a mut Vec<(usize, GlyphId)>, pos: usize, subs: impl Iterator<Item=&'b Substitution>) -> (usize, isize) {
     for sub in subs {
-        let first = glyphs[pos].0 as u16;
+        let (first_idx, GlyphId(first)) = glyphs[pos];
         match *sub {
             Substitution::Single(ref map) => {
-                if let Some(&replacement) = map.get(&first) {
+                if let Some(&replacement) = map.get(&(first as u16)) {
                     debug!("replace gid {:?} with {:?}", glyphs[pos], GlyphId(replacement as u32));
-                    glyphs[pos] = GlyphId(replacement as u32);
+                    glyphs[pos] = (first_idx, GlyphId(replacement as u32));
                     return (pos + 1, 0);
                 }
             }
             Substitution::Ligatures(ref map) => {
-                if let Some(subs) = map.get(&first) {
+                if let Some(subs) = map.get(&(first as u16)) {
                     for &(ref sub, glyph) in subs {
-                        if let Some(len) = sub.matches(glyphs[pos + 1 ..].iter().cloned()) {
+                        if let Some(len) = sub.matches(glyphs[pos + 1 ..].iter().map(|&(_, gid)| gid)) {
                             debug!("ligature {}..{} with {:?}", pos, pos+len+1, GlyphId(glyph as u32));
-                            glyphs.splice(pos .. pos+len+1, std::iter::once(GlyphId(glyph as u32)));
+                            glyphs.splice(pos .. pos+len+1, std::iter::once((first_idx, GlyphId(glyph as u32))));
                             return (pos + 1, -(len as isize));
                         }
                     }
@@ -105,14 +105,16 @@ struct MetaGlyph {
     joining_type: JoiningType,
     location: GlyphLocation,
     category: GeneralCategory,
+    idx: usize,
 }
 impl MetaGlyph {
-    fn new(codepoint: char) -> MetaGlyph {
+    fn new(codepoint: char, idx: usize) -> MetaGlyph {
         MetaGlyph {
             codepoint,
             joining_type: get_joining_type(codepoint),
             location: GlyphLocation::Isolated,
             category: GeneralCategory::of(codepoint),
+            idx
         }
     }
 }
@@ -155,7 +157,7 @@ fn compute_joining(meta: &mut [MetaGlyph]) {
     }
 }
 
-fn sub_pass<F, G>(gsub: &GSub, lang: &LanguageSystem, meta: &[MetaGlyph], gids: &mut Vec<GlyphId>, filter_fn: F)
+fn sub_pass<F, G>(gsub: &GSub, lang: &LanguageSystem, meta: &[MetaGlyph], gids: &mut Vec<(usize, GlyphId)>, filter_fn: F)
     where F: Fn(&MetaGlyph) -> G, G: Fn(Tag) -> bool
 {
     let mut pos = 0;
@@ -184,12 +186,13 @@ fn process_chunk(font: &Font, language: Option<Tag>, rtl: bool, meta: &[MetaGlyp
     for g in meta {
         debug!("[\u{2068}{}\u{2069} 0x{:x}]", g.codepoint, g.codepoint as u32);
     }
-    let mut gids: Vec<GlyphId> = meta.iter()
-        .filter(|m| match m.category {
+    // (codepoint idx, glyph id)
+    let mut gids: Vec<(usize, GlyphId)> = meta.iter()
+        .filter(|&m| match m.category {
             GeneralCategory::Format => false,
             _ => true
         })
-        .map(|m| font.gid_for_unicode_codepoint(m.codepoint as u32).unwrap())
+        .map(|m| (m.idx, font.gid_for_unicode_codepoint(m.codepoint as u32).unwrap()))
         .collect();
 
     let otf = font.downcast::<OpenTypeFont>();
@@ -213,7 +216,7 @@ fn process_chunk(font: &Font, language: Option<Tag>, rtl: bool, meta: &[MetaGlyp
     }
     
     let mut last_gid = None;
-    for gid in gids {
+    for (idx, gid) in gids {
         if let Some(glyph) = font.glyph(gid) {
             let mark = match (gdef.and_then(|gdef| gdef.mark_class(gid.0 as u16)).unwrap_or(MarkClass::Unassigned), last_gid) {
                 (MarkClass::Mark, Some(last)) => {
@@ -245,7 +248,7 @@ fn process_chunk(font: &Font, language: Option<Tag>, rtl: bool, meta: &[MetaGlyp
 
             let tr = Transform2F::from_scale(vec2f(1.0, -1.0)) * font.font_matrix();
             state.offset += advance;
-            state.glyphs.push((glyph, tr, glyph_offset));
+            state.glyphs.push((glyph, tr, glyph_offset, idx));
         }
     }
 }
@@ -257,9 +260,10 @@ struct VMetrics {
 }
 
 struct State {
-    glyphs: Vec<(GlyphVariant, Transform2F, Vector2F)>,
+    // (variant, glyph transform, base offset, str offset)
+    glyphs: Vec<(GlyphVariant, Transform2F, Vector2F, usize)>,
     offset: Vector2F,
-    vmetrics: Option<VMetrics>
+    vmetrics: Option<VMetrics>,
 }
 
 fn font_for_text<'a>(fonts: &'a [Font], text: &str, meta: &[MetaGlyph]) -> Option<&'a Font> {
@@ -294,7 +298,7 @@ impl FontCollection {
         // we process each word separately to improve the visual appearance by trying to render a word in a single font
         for word in WordBounds::new(string) {
             // do stuff… borrowed from allsorts
-            let mut meta: Vec<MetaGlyph> = word.chars().map(|c| MetaGlyph::new(c)).collect();
+            let mut meta: Vec<MetaGlyph> = word.char_indices().map(|(idx, c)| MetaGlyph::new(c, idx)).collect();
             compute_joining(&mut meta);
             
             // try to find a font that has all glyphs
@@ -327,7 +331,7 @@ impl FontCollection {
 
 
         let bbox: RectF = state.glyphs.iter()
-            .map(|&(ref glyph, tr, offset)| Transform2F::from_translation(offset) * tr * glyph.common.path.bounds())
+            .map(|&(ref glyph, tr, offset, _)| Transform2F::from_translation(offset) * tr * glyph.common.path.bounds())
             .fold1(|a, b| a.union_rect(b)).unwrap_or_default();
         let (font_bounding_box_ascent, font_bounding_box_descent) = fonts.iter().filter_map(
             |f| {
@@ -373,7 +377,7 @@ pub struct GlyphVariant {
 pub struct Layout {
     pub metrics: TextMetrics,
     pub bbox: RectF,
-    pub glyphs: Vec<(GlyphVariant, Transform2F, Vector2F)>
+    pub glyphs: Vec<(GlyphVariant, Transform2F, Vector2F, usize)>
 }
 
 pub struct TextMetrics {
