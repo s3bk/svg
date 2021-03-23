@@ -2,7 +2,7 @@ use unic_bidi::{Level, LevelRun, BidiInfo};
 use svg_text::{FontCollection, Layout};
 use svg_dom::TextFlow;
 use pathfinder_geometry::vector::Vector2F;
-use whatlang::Lang;
+use isolang::Language;
 
 /// basic unit of text
 pub struct Chunk {
@@ -29,7 +29,7 @@ impl Chunk {
             runs
         }
     }
-    pub fn layout(&self, font: &FontCollection, lang: Option<Lang>) -> ChunkLayout {
+    pub fn layout(&self, font: &FontCollection, lang: Option<Language>) -> ChunkLayout {
         let mut offset = Vector2F::zero();
         let mut parts = Vec::with_capacity(self.runs.len());
         for (level, run) in self.runs.iter() {

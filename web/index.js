@@ -29,7 +29,7 @@ async function load_fonts() {
         fonts.map(url => fetch(url).then(r => r.arrayBuffer()))
     );
     let builder = new wasm_bindgen.FontBuilder();
-    fonts_data.forEach(data => builder.add(data));
+    fonts_data.forEach(data => builder.add(new Uint8Array(data)));
     return builder.build();
 }
 
@@ -52,7 +52,8 @@ function display(msg) {
 let view;
 function init_view(data) {
     let canvas = document.getElementById("canvas");
-    view = wasm_bindgen.show(canvas, data);
+    let context = canvas.getContext("webgl2");
+    view = wasm_bindgen.show(canvas, context, data, FONTS);
 
     let requested = false;
     function animation_frame(time) {

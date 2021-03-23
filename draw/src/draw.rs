@@ -14,7 +14,7 @@ use svgtypes::{Length};
 use std::sync::Arc;
 use crate::gradient::BuildGradient;
 use crate::text::{FontCache};
-use whatlang::Lang;
+use isolang::Language;
 use svg_text::FontCollection;
 use std::rc::Rc;
 use std::borrow::Cow;
@@ -86,7 +86,7 @@ pub struct DrawOptions<'a> {
     pub font_size: f32,
     pub direction: TextFlow,
 
-    pub lang: Option<Lang>,
+    pub lang: Option<Language>,
 }
 impl<'a> DrawOptions<'a> {
     pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {

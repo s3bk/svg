@@ -1,4 +1,4 @@
-use whatlang::Lang;
+use isolang::Language;
 use font::opentype::Tag;
 
 fn tag(a: &[u8; 4]) -> Option<Tag> {
@@ -9,265 +9,267 @@ fn tag(a: &[u8; 4]) -> Option<Tag> {
     }
 }
 
-pub fn lang_to_tag(lang: Lang) -> Option<Tag> {
-    use Lang::*;
+pub fn lang_to_tag(lang: Language) -> Option<Tag> {
+    use Language::*;
     match lang {
-        /// Esperanto (Esperanto)
+        // Esperanto (Esperanto)
         Epo => tag(b"NTO "),
 
-        /// English (English)
+        // English (English)
         Eng => tag(b"ENG "),
 
-        /// Русский (Russian)
+        // Русский (Russian)
         Rus => tag(b"RUS "),
 
-        /// 普通话 (Mandarin)
+        // 普通话 (Mandarin)
         Cmn => None,
 
-        /// Español (Spanish)
+        // Español (Spanish)
         Spa => tag(b"ESP "),
 
-        /// Português (Portuguese)
+        // Português (Portuguese)
         Por => tag(b"PTG "),
 
-        /// Italiano (Italian)
+        // Italiano (Italian)
         Ita => tag(b"ITA "),
 
-        /// বাংলা (Bengali)
+        // বাংলা (Bengali)
         Ben => tag(b"BEN "),
 
-        /// Français (French)
+        // Français (French)
         Fra => tag(b"FRA "),
 
-        /// Deutsch (German)
+        // Deutsch (German)
         Deu => tag(b"DEU "),
 
-        /// Українська (Ukrainian)
+        // Українська (Ukrainian)
         Ukr => tag(b"UKR "),
 
-        /// ქართული (Georgian)
+        // ქართული (Georgian)
         Kat => tag(b"KAT "),
 
-        /// العربية (Arabic)
+        // العربية (Arabic)
         Arb => tag(b"ARA "),
 
-        /// हिन्दी (Hindi)
+        // हिन्दी (Hindi)
         Hin => tag(b"HIN "),
 
-        /// 日本語 (Japanese)
+        // 日本語 (Japanese)
         Jpn => tag(b"JAN "),
 
-        /// עברית (Hebrew)
+        // עברית (Hebrew)
         Heb => tag(b"IWR "),
 
-        /// ייִדיש (Yiddish)
+        // ייִדיש (Yiddish)
         Ydd => tag(b"JII "),
 
-        /// Polski (Polish)
+        // Polski (Polish)
         Pol => tag(b"PLK "),
 
-        /// አማርኛ (Amharic)
+        // አማርኛ (Amharic)
         Amh => tag(b"AMH "),
 
-        /// ትግርኛ (Tigrinya)
+        // ትግርኛ (Tigrinya)
         Tir => tag(b"TGY "),
 
-        /// Basa Jawa (Javanese)
+        // Basa Jawa (Javanese)
         Jav => tag(b"JAV "),
 
-        /// 한국어 (Korean)
+        // 한국어 (Korean)
         Kor => tag(b"KOR "),
 
-        /// Bokmål (Bokmal)
+        // Bokmål (Bokmal)
         Nob => None,
 
-        /// Nynorsk (Nynorsk)
+        // Nynorsk (Nynorsk)
         Nno => tag(b"NYN "),
 
-        /// Dansk (Danish)
+        // Dansk (Danish)
         Dan => tag(b"DAN "),
 
-        /// Svenska (Swedish)
+        // Svenska (Swedish)
         Swe => tag(b"SVE "),
 
-        /// Suomi (Finnish)
+        // Suomi (Finnish)
         Fin => tag(b"FIN "),
 
-        /// Türkçe (Turkish)
+        // Türkçe (Turkish)
         Tur => tag(b"TRK "),
 
-        /// Nederlands (Dutch)
+        // Nederlands (Dutch)
         Nld => tag(b"NLD "),
 
-        /// Magyar (Hungarian)
+        // Magyar (Hungarian)
         Hun => tag(b"HUN "),
 
-        /// Čeština (Czech)
+        // Čeština (Czech)
         Ces => tag(b"CSY "),
 
-        /// Ελληνικά (Greek)
+        // Ελληνικά (Greek)
         Ell => tag(b"ELL "),
 
-        /// Български (Bulgarian)
+        // Български (Bulgarian)
         Bul => tag(b"BGR "),
 
-        /// Беларуская (Belarusian)
+        // Беларуская (Belarusian)
         Bel => tag(b"BEL "),
 
-        /// मराठी (Marathi)
+        // मराठी (Marathi)
         Mar => tag(b"MAR "),
 
-        /// ಕನ್ನಡ (Kannada)
+        // ಕನ್ನಡ (Kannada)
         Kan => tag(b"KAN "),
 
-        /// Română (Romanian)
+        // Română (Romanian)
         Ron => tag(b"ROM "),
 
-        /// Slovenščina (Slovene)
+        // Slovenščina (Slovene)
         Slv => tag(b"SLV "),
 
-        /// Hrvatski (Croatian)
+        // Hrvatski (Croatian)
         Hrv => tag(b"HRV "),
 
-        /// Српски (Serbian)
+        // Српски (Serbian)
         Srp => tag(b"SRB "),
 
-        /// Македонски (Macedonian)
+        // Македонски (Macedonian)
         Mkd => tag(b"MKD "),
 
-        /// Lietuvių (Lithuanian)
+        // Lietuvių (Lithuanian)
         Lit => tag(b"LTH "),
 
-        /// Latviešu (Latvian)
+        // Latviešu (Latvian)
         Lav => tag(b"LVI "),
 
-        /// Eesti (Estonian)
+        // Eesti (Estonian)
         Est => tag(b"ETI "),
 
-        /// தமிழ் (Tamil)
+        // தமிழ் (Tamil)
         Tam => tag(b"TAM "),
 
-        /// Tiếng Việt (Vietnamese)
+        // Tiếng Việt (Vietnamese)
         Vie => tag(b"VIT "),
 
-        /// اُردُو (Urdu)
+        // اُردُو (Urdu)
         Urd => tag(b"URD "),
 
-        /// ภาษาไทย (Thai)
+        // ภาษาไทย (Thai)
         Tha => tag(b"THA "),
 
-        /// ગુજરાતી (Gujarati)
+        // ગુજરાતી (Gujarati)
         Guj => tag(b"GUJ "),
 
-        /// Oʻzbekcha (Uzbek)
+        // Oʻzbekcha (Uzbek)
         Uzb => tag(b"UZB "),
 
-        /// ਪੰਜਾਬੀ (Punjabi)
+        // ਪੰਜਾਬੀ (Punjabi)
         Pan => tag(b"PAN "),
 
-        /// Azərbaycanca (Azerbaijani)
+        // Azərbaycanca (Azerbaijani)
         Azj => tag(b"AZE "),
 
-        /// Bahasa Indonesia (Indonesian)
+        // Bahasa Indonesia (Indonesian)
         Ind => tag(b"IND "),
 
-        /// తెలుగు (Telugu)
+        // తెలుగు (Telugu)
         Tel => tag(b"TEL "),
 
-        /// فارسی (Persian)
+        // فارسی (Persian)
         Pes => tag(b"FAR "),
 
-        /// മലയാളം (Malayalam)
+        // മലയാളം (Malayalam)
         Mal => tag(b"MAL "),
 
-        /// Hausa (Hausa)
+        // Hausa (Hausa)
         Hau => tag(b"HAU "),
 
-        /// ଓଡ଼ିଆ (Oriya)
+        // ଓଡ଼ିଆ (Oriya)
         Ori => tag(b"ORI "),
 
-        /// မြန်မာစာ (Burmese)
+        // မြန်မာစာ (Burmese)
         Mya => tag(b"BRM "),
 
-        /// भोजपुरी (Bhojpuri)
+        // भोजपुरी (Bhojpuri)
         Bho => tag(b"BHO "),
 
-        /// Tagalog (Tagalog)
+        // Tagalog (Tagalog)
         Tgl => tag(b"TGL "),
 
-        /// Yorùbá (Yoruba)
+        // Yorùbá (Yoruba)
         Yor => tag(b"YBA "),
 
-        /// मैथिली (Maithili)
+        // मैथिली (Maithili)
         Mai => tag(b"MTH "),
 
-        /// Oromoo (Oromo)
+        // Oromoo (Oromo)
         Orm => tag(b"ORO "),
 
-        /// Igbo (Igbo)
+        // Igbo (Igbo)
         Ibo => tag(b"IBO "),
 
-        /// Cebuano (Cebuano)
+        // Cebuano (Cebuano)
         Ceb => tag(b"CEB "),
 
-        /// Kurdî (Kurdish)
+        // Kurdî (Kurdish)
         Kur => tag(b"KUR "),
 
-        /// Malagasy (Malagasy)
+        // Malagasy (Malagasy)
         Mlg => tag(b"MLG "),
 
-        /// سرائیکی (Saraiki)
+        // سرائیکی (Saraiki)
         Skr => tag(b"SRK "),
 
-        /// नेपाली (Nepali)
+        // नेपाली (Nepali)
         Nep => tag(b"NEP "),
 
-        /// සිංහල (Sinhalese)
+        // සිංහල (Sinhalese)
         Sin => tag(b"SNH "),
 
-        /// ភាសាខ្មែរ (Khmer)
+        // ភាសាខ្មែរ (Khmer)
         Khm => tag(b"KHM "),
 
-        /// Türkmençe (Turkmen)
+        // Türkmençe (Turkmen)
         Tuk => tag(b"TKM "),
 
-        /// Soomaaliga (Somali)
+        // Soomaaliga (Somali)
         Som => tag(b"SML "),
 
-        /// Chichewa (Chewa)
+        // Chichewa (Chewa)
         Nya => tag(b"CHI "),
 
-        /// Akan (Akan)
+        // Akan (Akan)
         Aka => tag(b"AKA "),
 
-        /// IsiZulu (Zulu)
+        // IsiZulu (Zulu)
         Zul => tag(b"ZUL "),
 
-        /// Kinyarwanda (Kinyarwanda)
+        // Kinyarwanda (Kinyarwanda)
         Kin => tag(b"RUA "),
 
-        /// Kreyòl ayisyen (Haitian Creole)
+        // Kreyòl ayisyen (Haitian Creole)
         Hat => tag(b"HAI "),
 
-        /// Ilokano (Ilocano)
+        // Ilokano (Ilocano)
         Ilo => tag(b"ILO "),
 
-        /// Ikirundi (Rundi)
+        // Ikirundi (Rundi)
         Run => tag(b"RUN "),
 
-        /// ChiShona (Shona)
+        // ChiShona (Shona)
         Sna => tag(b"SNA0"),
 
-        /// ئۇيغۇرچە (Uyghur)
+        // ئۇيغۇرچە (Uyghur)
         Uig => tag(b"UYG "),
 
-        /// Afrikaans (Afrikaans)
+        // Afrikaans (Afrikaans)
         Afr => tag(b"AFK "),
 
-        /// Lingua Latina (Latin)
+        // Lingua Latina (Latin)
         Lat => tag(b"LAT "),
 
-        /// Slovenčina (Slovak)
+        // Slovenčina (Slovak)
         Slk => tag(b"SKY "),
+
+        _ => None
     }
 }

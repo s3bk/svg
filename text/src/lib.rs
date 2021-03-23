@@ -18,6 +18,7 @@ use unic_segment::{WordBounds, GraphemeIndices};
 use unic_ucd_category::GeneralCategory;
 use unicode_joining_type::{get_joining_type, JoiningType};
 use whatlang::Lang;
+use isolang::Language;
 
 #[derive(Clone)]
 pub struct Font(Arc<dyn font::Font + Sync + Send>);
@@ -286,8 +287,8 @@ fn font_for_text<'a>(fonts: &'a [Font], text: &str, meta: &[MetaGlyph]) -> Optio
 }
 
 impl FontCollection {
-    pub fn layout_run(&self, string: &str, rtl: bool, lang: Option<Lang>) -> Layout {
-        let lang = lang.and_then(tags::lang_to_tag).or(guess_lang(string));
+    pub fn layout_run(&self, string: &str, rtl: bool, lang: Option<Language>) -> Layout {
+        let lang = lang.and_then(tags::lang_to_tag).or_else(|| guess_lang(string));
 
         let fonts = &*self.fonts;
         if fonts.len() == 0 {
@@ -365,12 +366,9 @@ impl FontCollection {
 mod tags;
 
 fn guess_lang(text: &str) -> Option<Tag> {
-    if let Some(info) = whatlang::detect(text) {
-        tags::lang_to_tag(info.lang())
-    } else {
-        None
-    }
-
+    whatlang::detect(text)
+        .and_then(|info| Language::from_639_3(info.lang().code()))
+        .and_then(tags::lang_to_tag)
 }
 
 pub struct GlyphVariant {

@@ -4,7 +4,7 @@ use pathfinder_content::{
     fill::{FillRule}
 };
 use svgtypes::{Length};
-use whatlang::Lang;
+use isolang::Language;
 
 #[derive(Debug, Clone)]
 pub struct Attrs {
@@ -24,7 +24,7 @@ pub struct Attrs {
     pub filter: Option<Iri>,
     pub font_size: Value<Option<LengthY>>,
     pub direction: Option<TextFlow>,
-    pub lang: Option<Lang>,
+    pub lang: Option<Language>,
 }
 
 #[derive(Debug, Clone)]
@@ -43,9 +43,14 @@ impl Parse for Stroke {
     }
 }
 
-impl Parse for Lang {
+fn parse_lang_attr(s: &str) -> Option<Language> {
+    Language::from_639_3(s).or_else(|| Language::from_639_1(s))
+}
+
+impl Parse for Language {
     fn parse(s: &str) -> Result<Self, Error> {
-        Lang::from_code(s).ok_or_else(|| Error::InvalidAttributeValue(s.into()))
+        let lang = s.split("-").next().unwrap().to_ascii_lowercase();
+        parse_lang_attr(&lang).ok_or_else(|| Error::InvalidAttributeValue(s.into()))
     }
 }
 
@@ -68,7 +73,7 @@ impl Attrs {
             var filter: Option<Iri>,
             anim font_size ("font-size"): Value<Option<LengthY>>,
             var direction: Option<TextFlow>,
-            var lang: Option<Lang>,
+            var lang: Option<Language>,
         });
         Ok(Attrs {
             clip_path,
