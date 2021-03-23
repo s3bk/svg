@@ -216,7 +216,7 @@ fn process_chunk(font: &Font, language: Option<Tag>, rtl: bool, meta: &[MetaGlyp
     }
     
     let mut last_gid = None;
-    for (idx, gid) in gids {
+    for (index, gid) in gids {
         if let Some(glyph) = font.glyph(gid) {
             let mark = match (gdef.and_then(|gdef| gdef.mark_class(gid.0 as u16)).unwrap_or(MarkClass::Unassigned), last_gid) {
                 (MarkClass::Mark, Some(last)) => {
@@ -225,7 +225,7 @@ fn process_chunk(font: &Font, language: Option<Tag>, rtl: bool, meta: &[MetaGlyp
                 _ => None
             };
 
-            let (advance, glyph_offset) = match mark {
+            let (advance, offset) = match mark {
                 None => {
                     let kerning = vec2f(last_gid.replace(gid).map(|left| font.kerning(left, gid)).unwrap_or_default(), 0.0);
                     let advance = font.font_matrix() * (vec2f(glyph.metrics.advance, 0.0) + kerning);
@@ -246,11 +246,18 @@ fn process_chunk(font: &Font, language: Option<Tag>, rtl: bool, meta: &[MetaGlyp
                 svg
             };
 
-            let tr = Transform2F::from_scale(vec2f(1.0, -1.0)) * font.font_matrix();
+            let transform = Transform2F::from_scale(vec2f(1.0, -1.0)) * font.font_matrix();
             state.offset += advance;
-            state.glyphs.push((glyph, tr, glyph_offset, idx));
+            state.glyphs.push(LayoutGlyph { glyph, transform, offset, index });
         }
     }
+}
+
+pub struct LayoutGlyph {
+    pub glyph: GlyphVariant,
+    pub transform: Transform2F,
+    pub offset: Vector2F,
+    pub index: usize,
 }
 
 #[derive(Copy, Clone)]
@@ -261,7 +268,7 @@ struct VMetrics {
 
 struct State {
     // (variant, glyph transform, base offset, str offset)
-    glyphs: Vec<(GlyphVariant, Transform2F, Vector2F, usize)>,
+    glyphs: Vec<LayoutGlyph>,
     offset: Vector2F,
     vmetrics: Option<VMetrics>,
 }
@@ -280,13 +287,11 @@ fn font_for_text<'a>(fonts: &'a [Font], text: &str, meta: &[MetaGlyph]) -> Optio
 
 impl FontCollection {
     pub fn layout_run(&self, string: &str, rtl: bool, lang: Option<Lang>) -> Layout {
-        let t0 = std::time::Instant::now();
-
         let lang = lang.and_then(tags::lang_to_tag).or(guess_lang(string));
 
         let fonts = &*self.fonts;
         if fonts.len() == 0 {
-            println!("no fonts!");
+            warn!("no fonts!");
         }
 
         let mut state = State {
@@ -319,7 +324,7 @@ impl FontCollection {
                         current_font = Some(font);
                     } else {
                         current_font = None;
-                        println!("no font for {:?}", grapheme);
+                        warn!("no font for {:?}", grapheme);
                     }
                     meta_idx += meta_len;
                 }
@@ -331,7 +336,7 @@ impl FontCollection {
 
 
         let bbox: RectF = state.glyphs.iter()
-            .map(|&(ref glyph, tr, offset, _)| Transform2F::from_translation(offset) * tr * glyph.common.path.bounds())
+            .map(|g| Transform2F::from_translation(g.offset) * g.transform * g.glyph.common.path.bounds())
             .fold1(|a, b| a.union_rect(b)).unwrap_or_default();
         let (font_bounding_box_ascent, font_bounding_box_descent) = fonts.iter().filter_map(
             |f| {
@@ -349,7 +354,6 @@ impl FontCollection {
             descent: vmetrics.descent,
         };
 
-        println!("layout for {:?}: {:?}", string, t0.elapsed());
         Layout {
             bbox,
             glyphs: state.glyphs,
@@ -377,7 +381,7 @@ pub struct GlyphVariant {
 pub struct Layout {
     pub metrics: TextMetrics,
     pub bbox: RectF,
-    pub glyphs: Vec<(GlyphVariant, Transform2F, Vector2F, usize)>
+    pub glyphs: Vec<LayoutGlyph>
 }
 
 pub struct TextMetrics {
