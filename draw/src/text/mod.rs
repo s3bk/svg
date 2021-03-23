@@ -107,15 +107,15 @@ fn draw_items(scene: &mut Scene, options: &DrawOptions, pos: &GlyphPos, items: &
 
 fn draw_layout(layout: &ChunkLayout, scene: &mut Scene, options: &DrawOptions, state: TextState) -> Vector2F {
     for &(_, offset, ref sublayout) in &layout.parts {
-        for &(ref glyph_variant, glyph_tr, glyph_offset,_) in &sublayout.glyphs {
+        for glyph in &sublayout.glyphs {
             let chunk_tr = Transform2F::from_translation(state.pos) * Transform2F::from_rotation(deg2rad(state.rot))
                 * Transform2F::from_scale(options.font_size)
-                * Transform2F::from_translation(offset + glyph_offset);
-            let tr = chunk_tr * glyph_tr;
-            if let Some(ref svg) = glyph_variant.svg {
+                * Transform2F::from_translation(offset + glyph.offset);
+            let tr = chunk_tr * glyph.transform;
+            if let Some(ref svg) = glyph.glyph.svg {
                 draw_glyph(svg, scene, tr);
             } else {
-                options.draw_transformed(scene, &glyph_variant.common.path, tr);
+                options.draw_transformed(scene, &glyph.glyph.common.path, tr);
             }
         }
     }

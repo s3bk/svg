@@ -2,6 +2,7 @@ use std::ops::{Add, Sub, Mul};
 use std::fmt::Debug;
 use pathfinder_content::outline::Contour;
 use crate::prelude::*;
+use std::rc::Rc;
 
 impl<T> Resolve for Animate<T> where T: Resolve, T::Output: Interpolate {
     type Output = Option<T::Output>;
@@ -83,3 +84,21 @@ impl Interpolate for Rotation {
 
 wrap_interpolate!(SkewX);
 wrap_interpolate!(SkewY);
+
+impl Interpolate for Rc<[f32]> {
+    fn lerp(self, to: Self, x: f32) -> Self {
+        let mut out = Vec::with_capacity(self.len());
+        out.extend(self.iter().zip(to.iter()).map(|(&from, &to)| from.lerp(to, x)));
+        out.into()
+    }
+    fn scale(self, x: f32) -> Self {
+        let mut out = Vec::with_capacity(self.len());
+        out.extend(self.iter().map(|&val| val.scale(x)));
+        out.into()
+    }
+}
+impl Compose for Rc<[f32]> {
+    fn compose(self, rhs: Self) -> Self {
+        rhs
+    }
+}

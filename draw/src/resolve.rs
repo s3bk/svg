@@ -1,5 +1,5 @@
 use crate::prelude::*;
-
+use std::rc::Rc;
 
 fn apply_anim<T, U>(animate: &Animate<T>, base: U, options: &DrawOptions) -> U
 where T: Resolve, T::Output: Interpolate + Into<U>, U: Compose
@@ -85,6 +85,24 @@ impl Resolve for ValueVector {
         let x = self.x.resolve(options);
         let y = self.y.resolve(options);
         vec2f(x, y)
+    }
+}
+
+impl Resolve for DashArray {
+    type Output = Rc<[f32]>;
+    fn resolve(&self, options: &DrawOptions) -> Rc<[f32]> {
+        let mut out = Vec::with_capacity(self.0.len());
+        for len in self.0.iter() {
+            out.push(len.resolve(options));
+        }
+        out.into()
+    }
+    fn try_resolve(&self, options: &DrawOptions) -> Option<Rc<[f32]>> {
+        let mut out = Vec::with_capacity(self.0.len());
+        for len in self.0.iter() {
+            out.push(len.try_resolve(options)?);
+        }
+        Some(out.into())
     }
 }
 

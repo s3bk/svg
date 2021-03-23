@@ -17,9 +17,9 @@ macro_rules! timed {
 }
 
 macro_rules! get_or_return {
-    ($opt:expr) => (
+    (ref $opt:expr) => (
         match $opt {
-            Some(val) => val,
+            Some(ref val) => val,
             None => return
         }
     );
@@ -32,17 +32,15 @@ macro_rules! get_or_return {
             }
         }
     );
-}
-macro_rules! get_ref_or_return {
     ($opt:expr) => (
         match $opt {
-            Some(ref val) => val,
+            Some(val) => val,
             None => return
         }
     );
     ($opt:expr, $msg:tt $(,$args:tt)*) => (
         match $opt {
-            Some(ref val) => val,
+            Some(val) => val,
             None => {
                 println!($msg $(,$args)*);
                 return;
@@ -89,6 +87,7 @@ macro_rules! parse {
                 _ => {}
             }
         }
+        #[allow(unused)]
         for (first, last, n) in crate::first_or_last_node($node.children()) {
             if n.is_element() {
                 match n.tag_name().name() {

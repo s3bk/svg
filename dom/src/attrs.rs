@@ -18,6 +18,8 @@ pub struct Attrs {
     pub stroke: Value<Stroke>,
     pub stroke_width: Value<Option<Length>>,
     pub stroke_opacity: Value<Option<f32>>,
+    pub stroke_dasharray: Value<Option<DashArray>>,
+    pub stroke_dashoffset: Value<Option<Length>>,
     pub display: bool,
     pub filter: Option<Iri>,
     pub font_size: Value<Option<LengthY>>,
@@ -60,6 +62,8 @@ impl Attrs {
             anim stroke: Value<Stroke> = Value::new(Stroke(None)),
             anim stroke_width ("stroke-width"): Value<Option<Length>>,
             anim stroke_opacity ("stroke-opacity"): Value<Option<f32>>,
+            anim stroke_dasharray ("stroke-dasharray"): Value<Option<DashArray>>,
+            anim stroke_dashoffset ("stroke-dashoffset"): Value<Option<Length>>,
             var display: bool = true => parse_display,
             var filter: Option<Iri>,
             anim font_size ("font-size"): Value<Option<LengthY>>,
@@ -77,12 +81,31 @@ impl Attrs {
             stroke,
             stroke_width,
             stroke_opacity,
+            stroke_dasharray,
+            stroke_dashoffset,
             display,
             filter,
             font_size,
             direction,
             lang,
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DashArray(pub Vec<Length>);
+impl Parse for DashArray {
+    fn parse(s: &str) -> Result<DashArray, Error> {
+        let lengths = Vec::<Length>::parse(s)?;
+        let lengths = if lengths.len() % 2 == 0 {
+            lengths
+        } else {
+            let mut v = Vec::with_capacity(2 * lengths.len());
+            v.extend_from_slice(&lengths);
+            v.extend_from_slice(&lengths);
+            v
+        };
+        Ok(DashArray(lengths))
     }
 }
 

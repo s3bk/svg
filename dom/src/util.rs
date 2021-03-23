@@ -174,6 +174,11 @@ impl Parse for String {
     }
 }
 
+impl Parse for Vec<Length> {
+    fn parse(s: &str) -> Result<Self, Error> {
+        Ok(LengthListParser::from(s).collect::<Result<_, _>>()?)
+    }
+}
 
 impl<T: Parse> Parse for Option<T> {
     fn parse(s: &str) -> Result<Self, Error> {

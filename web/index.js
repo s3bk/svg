@@ -1,5 +1,5 @@
 wasm_bindgen("pkg/svg_web_bg.wasm").catch(console.error)
-.then(show_logo);
+.then(init);
 
 let utf8decoder = new TextDecoder();
 let utf8encoder = new TextEncoder();
@@ -11,6 +11,26 @@ function show_logo() {
         document.getElementById("svg-input").value = utf8decoder.decode(buf);
         show_data(new Uint8Array(buf));
     });
+}
+
+let FONTS = null;
+async function init() {
+    FONTS = await load_fonts();
+    show_logo();
+}
+
+async function load_fonts() {
+    const fonts = [
+        "resources/latinmodern-math.otf",
+        "resources/NotoNaskhArabic-Regular.ttf",
+        "resources/NotoSerifBengali-Regular.ttf",
+    ];
+    let fonts_data = await Promise.all(
+        fonts.map(url => fetch(url).then(r => r.arrayBuffer()))
+    );
+    let builder = new wasm_bindgen.FontBuilder();
+    fonts_data.forEach(data => builder.add(data));
+    return builder.build();
 }
 
 function set_scroll_factors() {}
@@ -27,6 +47,7 @@ function dragover_handler(e) {
 
 function display(msg) {
 }
+
 
 let view;
 function init_view(data) {

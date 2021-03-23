@@ -3,6 +3,7 @@ use pathfinder_content::{
     outline::{Outline},
     stroke::{OutlineStrokeToFill, StrokeStyle, LineCap, LineJoin},
     fill::{FillRule},
+    dash::OutlineDash,
 };
 use pathfinder_renderer::{
     scene::{Scene, DrawPath, ClipPath, ClipPathId},
@@ -15,6 +16,8 @@ use crate::gradient::BuildGradient;
 use crate::text::{FontCache};
 use whatlang::Lang;
 use svg_text::FontCollection;
+use std::rc::Rc;
+use std::borrow::Cow;
 
 #[derive(Clone, Debug)]
 pub struct DrawContext<'a> {
@@ -66,6 +69,8 @@ pub struct DrawOptions<'a> {
     pub stroke: Paint,
     pub stroke_style: StrokeStyle,
     pub stroke_opacity: f32,
+    pub stroke_dasharray: Option<Rc<[f32]>>,
+    pub stroke_dashoffset: f32,
 
     pub opacity: f32,
 
@@ -98,6 +103,8 @@ impl<'a> DrawOptions<'a> {
                 line_cap: LineCap::Butt,
                 line_join: LineJoin::Bevel,
             },
+            stroke_dasharray: None,
+            stroke_dashoffset: 0.0,
             transform: Transform2F::from_scale(10.),
             clip_path: ClipPathAttr::None,
             clip_rule: FillRule::EvenOdd,
@@ -177,7 +184,14 @@ impl<'a> DrawOptions<'a> {
         if let Some(ref stroke) = self.resolve_paint(&self.stroke, self.stroke_opacity) {
             if self.stroke_style.line_width > 0. {
                 let paint_id = scene.push_paint(stroke);
-                let mut stroke = OutlineStrokeToFill::new(path, self.stroke_style);
+
+                let mut outline = Cow::Borrowed(path);
+                if let Some(ref dash) = self.stroke_dasharray {
+                    let mut dash = OutlineDash::new(&path, dash, self.stroke_dashoffset);
+                    dash.dash();
+                    outline = Cow::Owned(dash.into_outline());
+                }
+                let mut stroke = OutlineStrokeToFill::new(&outline, self.stroke_style);
                 stroke.offset();
                 let path = stroke.into_outline();
                 let mut draw_path = DrawPath::new(path.transformed(&tr), paint_id);
@@ -205,9 +219,8 @@ impl<'a> DrawOptions<'a> {
             stroke: attrs.stroke.resolve(self),
             stroke_style,
             stroke_opacity: attrs.stroke_opacity.resolve(self).unwrap_or(self.stroke_opacity),
+            stroke_dasharray: attrs.stroke_dasharray.resolve(self),
             direction: attrs.direction.unwrap_or(self.direction),
-            #[cfg(feature="debug")]
-            debug_font: self.debug_font.clone(),
             font_size: attrs.font_size.resolve(self).unwrap_or(self.font_size),
             lang: attrs.lang.or(self.lang),
             .. *self

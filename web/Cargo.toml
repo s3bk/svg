@@ -12,6 +12,9 @@ path = "../dom"
 [dependencies.svg_draw]
 path = "../draw"
 
+[dependencies.svg_text]
+path = "../text"
+
 [dependencies]
 pathfinder_renderer = { git = "https://github.com/servo/pathfinder/" }
 pathfinder_geometry = { git = "https://github.com/servo/pathfinder/" }

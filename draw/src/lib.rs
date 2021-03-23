@@ -1,4 +1,3 @@
-#[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
 
 use pathfinder_renderer::{
@@ -143,6 +142,15 @@ impl DrawSvg {
             scene.set_view_box(options.transform * vb);
         }
         self.svg.root.draw_to(&mut scene, options);
+        scene
+    }
+
+    pub fn compose_with_viewbox(&self, view_box: RectF) -> Scene {
+        let ctx = self.ctx();
+        let options = DrawOptions::new(&ctx);
+        let mut scene = Scene::new();
+        scene.set_view_box(options.transform * view_box);
+        self.svg.root.draw_to(&mut scene, &options);
         scene
     }
 
