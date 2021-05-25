@@ -109,6 +109,7 @@ draw_items!(
         Rect(TagRect),
         Polygon(TagPolygon),
         Ellipse(TagEllipse),
+        Circle(TagCircle),
         Svg(TagSvg),
         Use(TagUse),
         Text(TagText),

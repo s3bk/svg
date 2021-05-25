@@ -31,7 +31,14 @@ pub struct Attrs {
 pub struct Fill(pub Option<Paint>);
 impl Parse for Fill {
     fn parse(s: &str) -> Result<Self, Error> {
-        Ok(Fill((inherit(Paint::parse))(s)?))
+        Ok(Fill(parse_paint(s)?))
+    }
+}
+
+fn parse_paint(s: &str) -> Result<Option<Paint>, Error> {
+    match s {
+        "inherit" | "currentColor" | "currentcolor" => Ok(None),
+        _ => Paint::parse(s).map(Some)
     }
 }
 
@@ -39,7 +46,7 @@ impl Parse for Fill {
 pub struct Stroke(pub Option<Paint>);
 impl Parse for Stroke {
     fn parse(s: &str) -> Result<Self, Error> {
-        Ok(Stroke((inherit(Paint::parse))(s)?))
+        Ok(Stroke(parse_paint(s)?))
     }
 }
 
@@ -57,13 +64,13 @@ impl Parse for Language {
 impl Attrs {
     pub fn parse<'i, 'a: 'i>(node: &Node<'i, 'a>) -> Result<Attrs, Error> {
         parse!(node => {
-            var clip_path: Option<ClipPathAttr> => ClipPathAttr::parse,
+            var clip_path ("clip-path"): Option<ClipPathAttr> => ClipPathAttr::parse,
             var clip_rule ("clip-rule"): Option<FillRule>,
             anim transform: Transform,
             anim opacity: Value<Option<f32>>,
             anim fill: Value<Fill> = Value::new(Fill(None)),
             var fill_rule ("fill-rule"): Option<FillRule> = Some(FillRule::Winding) => inherit(FillRule::parse),
-            anim fill_opacity: Value<Option<f32>>,
+            anim fill_opacity ("fill-opacity"): Value<Option<f32>>,
             anim stroke: Value<Stroke> = Value::new(Stroke(None)),
             anim stroke_width ("stroke-width"): Value<Option<Length>>,
             anim stroke_opacity ("stroke-opacity"): Value<Option<f32>>,
@@ -101,6 +108,7 @@ impl Attrs {
 pub struct DashArray(pub Vec<Length>);
 impl Parse for DashArray {
     fn parse(s: &str) -> Result<DashArray, Error> {
+        dbg!(s);
         let lengths = Vec::<Length>::parse(s)?;
         let lengths = if lengths.len() % 2 == 0 {
             lengths

@@ -26,6 +26,8 @@ impl From<XmlError> for Error {
 }
 impl From<SvgError> for Error {
     fn from(e: SvgError) -> Self {
+        dbg!(e);
+        panic!();
         Error::Svg(e)
     }
 }

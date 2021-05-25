@@ -389,3 +389,13 @@ pub struct TextMetrics {
     pub ascent: f32,
     pub descent: f32,
 }
+
+enum HAlign {
+    Left,
+    Center,
+    Right
+}
+
+enum VAlign {
+    Baseline
+}

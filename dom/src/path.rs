@@ -6,6 +6,7 @@ use pathfinder_content::{
 };
 use roxmltree::{Node};
 use crate::prelude::*;
+use crate::parse_element;
 
 
 #[inline]
@@ -19,7 +20,7 @@ fn reflect_on(last: Option<Vector2F>, point: Vector2F) -> Vector2F {
 #[derive(Debug)]
 pub struct TagClipPath {
     pub id: Option<String>,
-    pub paths: Vec<TagPath>,
+    pub items: Vec<Item>,
 }
 impl Tag for TagClipPath {
     fn id(&self) -> Option<&str> {
@@ -29,18 +30,13 @@ impl Tag for TagClipPath {
 impl ParseNode for TagClipPath {
     fn parse_node(node: &Node) -> Result<TagClipPath, Error> {
         let id = node.attribute("id").map(From::from);
-        let mut paths = Vec::with_capacity(1);
+        let mut items = Vec::with_capacity(1);
         for elem in node.children().filter(|n| n.is_element()) {
-            match elem.tag_name().name() {
-                "path" => {
-                    paths.push(TagPath::parse_node(&elem)?);
-                },
-                _ => {
-                    dbg!(elem);
-                }
+            if let Some(item) = parse_element(&elem)? {
+                items.push(item);
             }
         }
-        Ok(TagClipPath { id, paths })
+        Ok(TagClipPath { id, items })
     }
 }
 

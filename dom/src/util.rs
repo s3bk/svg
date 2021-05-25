@@ -182,7 +182,11 @@ impl Parse for Vec<Length> {
 
 impl<T: Parse> Parse for Option<T> {
     fn parse(s: &str) -> Result<Self, Error> {
-        T::parse(s).map(Some)
+        if s == "none" {
+            Ok(None)
+        } else {
+            T::parse(s).map(Some)
+        }
     }
 }
 

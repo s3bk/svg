@@ -75,6 +75,7 @@ impl DrawItem for TagCircle {
         let mut contour = Contour::with_capacity(4);
         let tr = Transform2F::from_translation(center) * Transform2F::from_scale(radius);
         contour.push_ellipse(&tr);
+        contour.close();
 
         let mut outline = Outline::with_capacity(1);
         outline.push_contour(contour);

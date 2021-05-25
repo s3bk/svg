@@ -23,11 +23,6 @@ use std::borrow::Cow;
 pub struct DrawContext<'a> {
     pub svg: &'a Svg,
 
-    #[cfg(feature="debug")]
-    pub debug_font: Arc<FontCollection>,
-    #[cfg(feature="debug")]
-    pub debug: bool,
-
     pub dpi: f32,
 
     pub font_cache: FontCache,
@@ -37,11 +32,6 @@ impl<'a> DrawContext<'a> {
         DrawContext {
             svg,
             dpi: 75.0,
-
-            #[cfg(feature="debug")]
-            debug_font: Arc::new(FontCollection::debug()),
-            #[cfg(feature="debug")]
-            debug: false,
 
             font_cache: FontCache::new(fallback_fonts),
         }
@@ -76,7 +66,7 @@ pub struct DrawOptions<'a> {
 
     pub transform: Transform2F,
 
-    pub clip_path: ClipPathAttr,
+    pub clip_path: Option<ClipPath>, //ClipPathAttr,
     pub clip_rule: FillRule,
 
     pub view_box: Option<RectF>,
@@ -106,7 +96,7 @@ impl<'a> DrawOptions<'a> {
             stroke_dasharray: None,
             stroke_dashoffset: 0.0,
             transform: Transform2F::from_scale(10.),
-            clip_path: ClipPathAttr::None,
+            clip_path: None,
             clip_rule: FillRule::EvenOdd,
             view_box: None,
             time: Time::start(),
@@ -134,7 +124,6 @@ impl<'a> DrawOptions<'a> {
     }
     fn resolve_paint(&self, paint: &Paint, opacity: f32) -> Option<PaPaint> {
         let opacity = opacity * self.opacity;
-        let alpha = (255. * opacity) as u8;
         match *paint {
             Paint::Color(ref c) => Some(PaPaint::from_color(c.color_u(opacity))),
             Paint::Ref(ref id) => match self.ctx.svg.named_items.get(id).map(|arc| &**arc) {
@@ -153,26 +142,31 @@ impl<'a> DrawOptions<'a> {
         let paint_id = scene.push_paint(&PaPaint::from_color(color));
         scene.push_draw_path(DrawPath::new(path.clone(), paint_id));
     }
-    fn clip_path_id(&self, scene: &mut Scene) -> Option<ClipPathId> {
-        if let ClipPathAttr::Ref(ref id) = self.clip_path {
-            if let Some(Item::ClipPath(p)) = self.ctx.resolve(id).map(|t| &**t) {
-                let outline = p.resolve(self);
-
-                let mut clip_path = ClipPath::new(outline);
-                clip_path.set_fill_rule(self.clip_rule);
-                return Some(scene.push_clip_path(clip_path));
-            } else {
-                println!("clip path missing: {}", id);
-            }
-        }
-        None
-    }
     pub fn draw(&self, scene: &mut Scene, path: &Outline) {
         self.draw_transformed(scene, path, Transform2F::default());
     }
+    fn clip_path_id(&self, scene: &mut Scene) -> Option<ClipPathId> {
+        if let Some(ref clip_path) = self.clip_path {
+            let mut clip_path = clip_path.clone();
+            clip_path.set_fill_rule(self.clip_rule);
+            
+            // begin debug
+            /*
+            let paint = PaPaint::from_color(ColorU::new(255, 0, 255, 127));
+            let paint_id = scene.push_paint(&paint);
+            let draw_path = DrawPath::new(clip_path.outline().clone(), paint_id);
+            scene.push_draw_path(draw_path);
+            */
+            // end debug
+
+            Some(scene.push_clip_path(clip_path))
+        } else {
+            None
+        }
+    }
     pub fn draw_transformed(&self, scene: &mut Scene, path: &Outline, transform: Transform2F) {
-        let clip_path_id = self.clip_path_id(scene);
         let tr = self.transform * transform;
+        let clip_path_id = self.clip_path_id(scene);
         if let Some(ref fill) = self.resolve_paint(&self.fill, self.fill_opacity) {
             let outline = path.clone().transformed(&tr);
             let paint_id = scene.push_paint(fill);
@@ -208,8 +202,8 @@ impl<'a> DrawOptions<'a> {
         if let Some(length) = attrs.stroke_width.resolve(self) {
             stroke_style.line_width = length;
         }
-        let new = DrawOptions {
-            clip_path: attrs.clip_path.clone().unwrap_or_else(|| self.clip_path.clone()),
+        let mut new = DrawOptions {
+            clip_path: None,
             clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
             opacity: attrs.opacity.resolve(self).unwrap_or(1.0),
             transform: self.transform * attrs.transform.resolve(self),
@@ -225,6 +219,20 @@ impl<'a> DrawOptions<'a> {
             lang: attrs.lang.or(self.lang),
             .. *self
         };
+        new.clip_path = match attrs.clip_path {
+            None => self.clip_path.clone(),
+            Some(ClipPathAttr::None) => None,
+            Some(ClipPathAttr::Ref(ref id)) => {
+                if let Some(Item::ClipPath(p)) = self.ctx.resolve(id).map(|t| &**t) {
+                    let outline = p.resolve(&new);
+                    Some(ClipPath::new(outline))
+                } else {
+                    println!("clip path missing: {}", id);
+                    None
+                }
+            }
+        };
+
         debug!("fill {:?} + {:?} -> {:?}", self.fill, attrs.fill, new.fill);
         debug!("stroke {:?} + {:?} -> {:?}", self.stroke, attrs.stroke, new.stroke);
         new
