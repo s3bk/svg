@@ -43,7 +43,6 @@ pub use prelude::*;
 #[cfg(feature="text")]
 use svg_text::FontCollection;
 
-#[cfg(feature="text")]
 use std::sync::Arc;
 
 pub trait Resolve {
@@ -72,6 +71,15 @@ impl<T> Interpolate for Option<T> where T: Interpolate {
     }
     fn scale(self, x: f32) -> Self {
         self.map(|v| v.scale(x))
+    }
+}
+
+#[cfg(not(feature="text"))]
+impl DrawItem for TagText {
+    fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
+    }
+    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+        None
     }
 }
 
@@ -211,7 +219,7 @@ impl DrawSvg {
 
 use font::SvgGlyph;
 pub fn draw_glyph(glyph: &SvgGlyph, scene: &mut Scene, transform: Transform2F) {
-    let ctx = DrawContext::new(&*glyph.svg, Arc::new(FontCollection::new()));
+    let ctx = DrawContext::new_without_fonts(&*glyph.svg);
     let mut options = DrawOptions::new(&ctx);
     options.transform = transform * Transform2F::from_scale(Vector2F::new(1.0, -1.0));
     glyph.item.draw_to(scene, &options);

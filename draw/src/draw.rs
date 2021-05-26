@@ -13,8 +13,10 @@ use pathfinder_color::ColorU;
 use svgtypes::{Length};
 use std::sync::Arc;
 use crate::gradient::BuildGradient;
+#[cfg(feature="text")]
 use crate::text::{FontCache};
 use isolang::Language;
+#[cfg(feature="text")]
 use svg_text::FontCollection;
 use std::rc::Rc;
 use std::borrow::Cow;
