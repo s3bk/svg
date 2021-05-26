@@ -13,7 +13,8 @@ pub struct TagRect {
     pub size: ValueVector,
 
     //#[attr("rx", "ry", animate, default)]
-    pub radius: ValueVector,
+    pub rx: Value<Option<Length>>,
+    pub ry: Value<Option<Length>>,
 
     //#[attr("id")]
     pub id: Option<String>,
@@ -21,44 +22,6 @@ pub struct TagRect {
     //#[attr(other)]
     pub attrs: Attrs,
 }
-/*
-impl TagRect {
-    pub fn parse(node: &Node) -> Result<TagRect, Error> {
-        let mut attr_x = parse_or_default(node.attribute("x"))?;
-        let mut attr_y = parse_or_default(node.attribute("y"))?;
-        let id: Option<String> = parse(node.attribute("id"))?;
-
-        for n in node.children().filter(|n| n.is_element()) {
-            match n.tag_name().name() {
-                "animate" | "animateColor" => match n.attribute("attributeName").unwrap() {
-                    "x" => x.parse_animate_node(&n)?,
-                    "y" => y.parse_animate_node(&n)?,
-                    "width" => width.parse_animate_node(&n)?,
-                    "height" => height.parse_animate_node(&n)?,
-                    "rx" => rx.parse_animate_node(&n)?,
-                    "ry" => ry.parse_animate_node(&n)?,
-                    _ => {}
-                }
-                _ => {}
-            }
-        }
-
-        let mut pos: ValueVector = ValueVector::new(attr_x, attr_y);
-        TagRect {
-            pos,
-            ..
-            id,
-            attrs: Attrs::parse(node)?,
-        }
-        Ok(TagRect {
-            pos: ValueVector::new(x, y),
-            size: ValueVector::new(width, height),
-            radius: ValueVector::new(rx, ry),
-            attrs,
-            id,
-        })
-    }
-}*/
 
 
 impl Tag for TagRect {
@@ -75,16 +38,15 @@ impl ParseNode for TagRect {
             anim y: Value<LengthY>,
             anim height: Value<LengthY>,
             anim width: Value<LengthX>,
-            anim rx: Value<LengthX>,
-            anim ry: Value<LengthY>,
+            anim rx: Value<Option<Length>>,
+            anim ry: Value<Option<Length>>,
             var id,
         });
-
         let attrs = Attrs::parse(node)?;
         Ok(TagRect {
             pos: ValueVector::new(x, y),
             size: ValueVector::new(width, height),
-            radius: ValueVector::new(rx, ry),
+            rx, ry,
             attrs,
             id,
         })

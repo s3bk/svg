@@ -1,20 +1,27 @@
 use crate::prelude::*;
 use pathfinder_content::outline::{Outline, Contour};
 
-pub fn rect_outline<'a>(rect: &TagRect, options: &DrawOptions<'a>) -> Option<(DrawOptions<'a>, Outline)> {
-    if !rect.attrs.display {
+pub fn rect_outline<'a>(tag: &TagRect, options: &DrawOptions<'a>) -> Option<(DrawOptions<'a>, Outline)> {
+    if !tag.attrs.display {
         return None;
     }
-    let options = options.apply(&rect.attrs);
+    let options = options.apply(&tag.attrs);
 
-    let size = rect.size.resolve(&options);
+    let size = tag.size.resolve(&options);
     if (size.x() == 0.) || (size.y() == 0.) {
         return None;
     }
     
-    let origin = rect.pos.resolve(&options);
-    let radius = rect.radius.resolve(&options);
-    let contour = Contour::from_rect_rounded(RectF::new(origin, size), radius);
+    let origin = tag.pos.resolve(&options);
+    let rx = tag.rx.resolve(&options);
+    let ry = tag.ry.resolve(&options);
+    let rect = RectF::new(origin, size);
+
+    let contour = match (rx, ry) {
+        (Some(x), Some(y)) => Contour::from_rect_rounded(rect, Vector2F::new(x, y)),
+        (Some(r), None) | (None, Some(r)) => Contour::from_rect_rounded(rect, Vector2F::new(r, r)),
+        (None, None) => Contour::from_rect(rect),
+    };
 
     let mut outline = Outline::with_capacity(1);
     outline.push_contour(contour);
