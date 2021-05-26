@@ -19,6 +19,6 @@ fn main() {
 
     let svg = Svg::from_data(&data).unwrap();
     let scene = DrawSvg::new(svg, fonts).compose();
-    let image = Rasterizer::new().rasterize(scene);
+    let image = Rasterizer::new().rasterize(scene, None);
     image.save(&output).unwrap();
 }
