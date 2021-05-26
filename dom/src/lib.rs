@@ -102,6 +102,7 @@ items!(
         "defs" => Defs(TagDefs),
         "rect" => Rect(TagRect),
         "polygon" => Polygon(TagPolygon),
+        "polyline" => Polyline(TagPolyline),
         "circle" => Circle(TagCircle),
         "ellipse" => Ellipse(TagEllipse),
         "linearGradient" => LinearGradient(TagLinearGradient),

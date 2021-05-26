@@ -120,6 +120,7 @@ draw_items!(
         G(TagG),
         Rect(TagRect),
         Polygon(TagPolygon),
+        Polyline(TagPolyline),
         Ellipse(TagEllipse),
         Circle(TagCircle),
         Svg(TagSvg),
