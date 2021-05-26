@@ -32,3 +32,31 @@ impl DrawItem for TagPolyline {
         options.draw(scene, &self.outline);
     }
 }
+
+impl DrawItem for TagLine {
+    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+        if self.attrs.display {
+            let options = options.apply(&self.attrs);
+            let p1 = self.p1.resolve(&options);
+            let p2 = self.p2.resolve(&options);
+            Some(RectF::from_points(p1.min(p2), p1.max(p2)))
+        } else {
+            None
+        }
+    }
+    fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
+        let options = options.apply(&self.attrs);
+        let p1 = self.p1.resolve(&options);
+        let p2 = self.p2.resolve(&options);
+
+        let mut contour = Contour::with_capacity(2);
+        contour.push_endpoint(p1);
+        contour.push_endpoint(p2);
+
+        let mut outline = Outline::with_capacity(1);
+        outline.push_contour(contour);
+
+        options.draw(scene, &outline);
+    }
+}
+
