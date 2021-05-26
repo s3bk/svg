@@ -25,15 +25,27 @@ pub struct DrawContext<'a> {
 
     pub dpi: f32,
 
-    pub font_cache: FontCache,
+    #[cfg(feature="text")]
+    pub font_cache: Option<FontCache>,
 }
 impl<'a> DrawContext<'a> {
+    pub fn new_without_fonts(svg: &'a Svg) -> Self {
+        DrawContext {
+            svg,
+            dpi: 75.0,
+
+            #[cfg(feature="text")]
+            font_cache: None
+        }
+    }
+
+    #[cfg(feature="text")]
     pub fn new(svg: &'a Svg, fallback_fonts: Arc<FontCollection>) -> Self {
         DrawContext {
             svg,
             dpi: 75.0,
 
-            font_cache: FontCache::new(fallback_fonts),
+            font_cache: Some(FontCache::new(fallback_fonts)),
         }
     }
     pub fn resolve(&self, id: &str) -> Option<&Arc<Item>> {

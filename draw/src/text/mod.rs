@@ -37,7 +37,9 @@ impl DrawItem for TagText {
             rot: 0.0
         };
 
-        draw_items(scene, &options, &self.pos, &self.items, state, 0, None);
+        if let Some(ref font_cache) = options.ctx.font_cache {
+            draw_items(scene, &options, font_cache, &self.pos, &self.items, state, 0, None);
+        }
     }
     fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
         None
@@ -67,8 +69,8 @@ fn chunk(scene: &mut Scene, options: &DrawOptions, s: &str, state: TextState, fo
     draw_layout(&layout, scene, &options, state)
 }
 
-fn draw_items(scene: &mut Scene, options: &DrawOptions, pos: &GlyphPos, items: &[Arc<Item>], mut state: TextState, mut char_idx: usize, parent_moves: Option<&Moves>) -> (TextState, usize) {
-    let fallback = &*options.ctx.font_cache.fallback;
+fn draw_items(scene: &mut Scene, options: &DrawOptions, font_cache: &FontCache, pos: &GlyphPos, items: &[Arc<Item>], mut state: TextState, mut char_idx: usize, parent_moves: Option<&Moves>) -> (TextState, usize) {
+    let fallback = &font_cache.fallback;
     let moves = Moves::new(pos, char_idx, parent_moves);
 
     for item in items.iter() {
@@ -94,7 +96,7 @@ fn draw_items(scene: &mut Scene, options: &DrawOptions, pos: &GlyphPos, items: &
             },
             Item::TSpan(ref span) => {
                 let options = options.apply(&span.attrs);
-                let (new_state, new_idx) = draw_items(scene, &options, &span.pos, &span.items, state, char_idx, Some(&moves));
+                let (new_state, new_idx) = draw_items(scene, &options, font_cache, &span.pos, &span.items, state, char_idx, Some(&moves));
                 state = new_state;
                 char_idx = new_idx;
             }

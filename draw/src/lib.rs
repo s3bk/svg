@@ -33,13 +33,17 @@ mod filter;
 mod g;
 mod draw;
 mod svg;
+#[cfg(feature="text")]
 mod text;
 mod animate;
 mod paint;
 
 pub use prelude::*;
 
+#[cfg(feature="text")]
 use svg_text::FontCollection;
+
+#[cfg(feature="text")]
 use std::sync::Arc;
 
 pub trait Resolve {
@@ -118,11 +122,25 @@ draw_items!(
 
 pub struct DrawSvg {
     svg: Svg,
-    fallback_fonts: Arc<FontCollection>,
+
+    #[cfg(feature="text")]
+    fallback_fonts: Option<Arc<FontCollection>>,
 }
 impl DrawSvg {
+    pub fn new_without_fonts(svg: Svg) -> DrawSvg {
+        DrawSvg {
+            svg: svg,
+            
+            #[cfg(feature="text")]
+            fallback_fonts: None
+        }
+    }
+    #[cfg(feature="text")]
     pub fn new(svg: Svg, fallback_fonts: Arc<FontCollection>) -> DrawSvg {
-        DrawSvg { svg, fallback_fonts }
+        DrawSvg {
+            svg,
+            fallback_fonts: Some(fallback_fonts)
+        }
     }
     pub fn compose(&self) -> Scene {
         self.compose_with_transform(Transform2F::default())
@@ -179,7 +197,15 @@ impl DrawSvg {
     }
 
     pub fn ctx(&self) -> DrawContext {
-        DrawContext::new(&self.svg, self.fallback_fonts.clone())
+        #[cfg(feature="text")]
+        if let Some(ref f) = self.fallback_fonts {
+            DrawContext::new(&self.svg, f.clone())
+        } else {
+            DrawContext::new_without_fonts(&self.svg)
+        }
+
+        #[cfg(not(feature="text"))]
+        DrawContext::new_without_fonts(&self.svg)
     }
 }
 
