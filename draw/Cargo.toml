@@ -34,3 +34,4 @@ pathfinder_resources = { git = "https://github.com/servo/pathfinder/" }
 pathfinder_view = { git = "https://github.com/s3bk/pathfinder_view/" }
 pathfinder_rasterize = { git = "https://github.com/s3bk/pathfinder_rasterize/" }
 env_logger = "*"
+image = "*"
