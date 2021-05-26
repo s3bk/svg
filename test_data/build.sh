@@ -1,5 +1,8 @@
 #!/bin/bash
 
+mkdir -p png
+mkdir -p diff
+
 for file in svg/*.svg; do
     name=${file#"svg/"}
     name=${name%".svg"}
