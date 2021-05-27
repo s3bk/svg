@@ -36,12 +36,14 @@ fn main() {
 
         let reference = Reader::open(png_path).unwrap().decode().unwrap().to_rgba8();
         
+        let mut sum = 0;
         for (y, (ref_row, im_row)) in reference.rows().zip(image.rows_mut()).enumerate() {
             for (x, (Rgba(ref_px), Rgba(im_px))) in ref_row.zip(im_row).enumerate() {
                 let delta = ref_px.iter().zip(im_px.iter()).map(|(&r, &i)| ((r as i16) - (i as i16)).abs()).max().unwrap();
                 if delta > 5 {
                     *im_px = [255, 0, 0, 255];
                 }
+                sum += delta as usize;
             }
         }
 
@@ -49,6 +51,7 @@ fn main() {
         diff_path.set_extension("png");
         image.save(diff_path).unwrap();
 
-        println!("{:?} OK", name);
+        let edge_lenth = image.width() + image.height();
+        println!("{:?} {}", name, sum as f64 / (edge_lenth as f64));
     }
 }

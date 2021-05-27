@@ -1,11 +1,10 @@
 use crate::prelude::*;
 use pathfinder_content::outline::{Outline, Contour};
 
-pub fn rect_outline<'a>(tag: &TagRect, options: &DrawOptions<'a>) -> Option<(DrawOptions<'a>, Outline)> {
+fn rect_outline<'a>(tag: &TagRect, options: &Options<'a>) -> Option<Outline> {
     if !tag.attrs.display {
         return None;
     }
-    let options = options.apply(&tag.attrs);
 
     let size = tag.size.resolve(&options);
     if (size.x() == 0.) || (size.y() == 0.) {
@@ -25,16 +24,23 @@ pub fn rect_outline<'a>(tag: &TagRect, options: &DrawOptions<'a>) -> Option<(Dra
 
     let mut outline = Outline::with_capacity(1);
     outline.push_contour(contour);
-    Some((options, outline))
+    Some(outline)
 }
 
+impl Shape for TagRect {
+    fn outline(&self, options: &Options) -> Option<Outline> {
+        let options = options.apply(&self.attrs);
+        rect_outline(self, &options).map(|o| o.transformed(options.get_transform()))
+    }
+}
 impl DrawItem for TagRect {
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        if let Some((options, outline)) = rect_outline(self, &options) {
+        let options = options.apply(scene, &self.attrs);
+        if let Some(outline) = rect_outline(self, &options) {
             options.draw(scene, &outline);
         }
     }
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         if !self.attrs.display {
             return None;
         }

@@ -3,8 +3,14 @@ use crate::prelude::*;
 use pathfinder_content::outline::{Outline, Contour};
 use svgtypes::PointsParser;
 
+impl Shape for TagPolygon {
+    fn outline(&self, options: &Options) -> Option<Outline> {
+        let options = options.apply(&self.attrs);
+        Some(self.outline.clone().transformed(options.get_transform()))
+    }
+}
 impl DrawItem for TagPolygon {
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         if self.attrs.display && self.outline.len() > 0 {
             let options = options.apply(&self.attrs);
             options.bounds(self.outline.bounds())
@@ -13,13 +19,13 @@ impl DrawItem for TagPolygon {
         }
     }
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let options = options.apply(&self.attrs);
+        let options = options.apply(scene, &self.attrs);
         options.draw(scene, &self.outline);
     }
 }
 
 impl DrawItem for TagPolyline {
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         if self.attrs.display && self.outline.len() > 0 {
             let options = options.apply(&self.attrs);
             options.bounds(self.outline.bounds())
@@ -28,13 +34,13 @@ impl DrawItem for TagPolyline {
         }
     }
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let options = options.apply(&self.attrs);
+        let options = options.apply(scene, &self.attrs);
         options.draw(scene, &self.outline);
     }
 }
 
 impl DrawItem for TagLine {
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         if self.attrs.display {
             let options = options.apply(&self.attrs);
             let p1 = self.p1.resolve(&options);
@@ -45,7 +51,7 @@ impl DrawItem for TagLine {
         }
     }
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let options = options.apply(&self.attrs);
+        let options = options.apply(scene, &self.attrs);
         let p1 = self.p1.resolve(&options);
         let p2 = self.p2.resolve(&options);
 

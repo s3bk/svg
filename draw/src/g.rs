@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::filter::apply_filter;
 
 impl DrawItem for TagG {
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         if !self.attrs.display {
             return None;
         }
@@ -21,10 +21,11 @@ fn draw_items(scene: &mut Scene, items: &[Arc<Item>], attrs: &Attrs, options: &D
         return;
     }
 
-    let options = options.apply(attrs);
+    let options = options.apply(scene, attrs);
 
     if let Some(Iri(ref filter_id)) = attrs.filter {
-        let bounds = get_or_return!(max_bounds(items.iter().flat_map(|item| item.bounds(&options))));
+        let bounds_options = options.bounds_options();
+        let bounds = get_or_return!(max_bounds(items.iter().flat_map(|item| item.bounds(&bounds_options))));
 
         match options.ctx.resolve(&filter_id).map(|i| &**i) {
             Some(Item::Filter(filter)) => {
@@ -43,10 +44,9 @@ fn draw_items(scene: &mut Scene, items: &[Arc<Item>], attrs: &Attrs, options: &D
         item.draw_to(scene, &options);
     }
 }
-fn content_transform<'a>(tag: &TagUse, options: &DrawOptions<'a>, item: &Item) -> DrawOptions<'a> {
-    let mut options = options.apply(&tag.attrs);
+fn content_transform<'a>(tag: &TagUse, options: &mut Options<'a>, item: &Item) {
     let pos = tag.pos.resolve(&options);
-    options.transform(Transform2F::from_translation(pos));
+    options.apply_transform(Transform2F::from_translation(pos));
     match *item {
         Item::Symbol(TagSymbol { view_box: Some(ref view_box), .. }) |
         Item::Svg(TagSvg { view_box: Some(ref view_box), .. }) => {
@@ -54,25 +54,26 @@ fn content_transform<'a>(tag: &TagUse, options: &DrawOptions<'a>, item: &Item) -
         }
         _ => {}
     }
-    options
 }
 
 impl DrawItem for TagUse {
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         if !self.attrs.display {
             return None;
         }
+        let mut options = options.apply(&self.attrs);
         let item = &**options.ctx.resolve_href(self.href.as_ref()?)?;
-        let options = content_transform(self, options, item);
+        content_transform(self, &mut options, item);
         item.bounds(&options)
     }
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
         if !self.attrs.display {
             return;
         }
+        let mut options = options.apply(scene, &self.attrs);
         let href = get_ref_or_return!(self.href, "<use> without href");
         let item = get_or_return!(options.ctx.resolve_href(href), "can't resolve <use href={:?}>", href);
-        let options = content_transform(&self, options, item);
+        content_transform(&self, &mut options, item);
         debug!("item: {:?}", *item);
         match **item {
             Item::Symbol(TagSymbol { ref items, ref attrs, .. }) |

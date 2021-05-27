@@ -14,10 +14,11 @@ mod prelude {
         transform2d::Transform2F,
         rect::RectF,
     };
+    pub use pathfinder_content::outline::Outline;
     pub use svg_dom::prelude::*;
     pub use crate::{
-        DrawItem, Resolve, Interpolate, Compose,
-        draw::{DrawOptions, DrawContext},
+        DrawItem, Resolve, Interpolate, Compose, Shape,
+        draw::{Options, DrawContext, BoundsOptions, DrawOptions},
     };
     pub use svgtypes::{Length, LengthUnit};
 }
@@ -47,15 +48,19 @@ use std::sync::Arc;
 
 pub trait Resolve {
     type Output;
-    fn resolve(&self, options: &DrawOptions) -> Self::Output;
-    fn try_resolve(&self, options: &DrawOptions) -> Option<Self::Output> {
+    fn resolve(&self, options: &Options) -> Self::Output;
+    fn try_resolve(&self, options: &Options) -> Option<Self::Output> {
         Some(self.resolve(options))
     }
 }
 
+pub trait Shape {
+    fn outline(&self, options: &Options) -> Option<Outline>;
+}
+
 pub trait DrawItem {
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions);
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF>;
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF>;
 }
 
 pub trait Interpolate: Clone {
@@ -78,7 +83,7 @@ impl<T> Interpolate for Option<T> where T: Interpolate {
 impl DrawItem for TagText {
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
     }
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         None
     }
 }
@@ -104,7 +109,7 @@ macro_rules! draw_items {
                     _ => {}
                 }
             }
-            fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+            fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
                 match *self {
                     $( $name::$variant ( ref tag ) => tag.bounds(options), )*
                     _ => None
@@ -159,7 +164,7 @@ impl DrawSvg {
     pub fn compose_with_transform(&self, transform: Transform2F) -> Scene {
         let ctx = self.ctx();
         let mut options = DrawOptions::new(&ctx);
-        options.transform = transform;
+        options.set_transform(transform);
         //options.view_box = Some(RectF::new(Vector2F::zero(), Vector2F::new(10., 10.)));
         self.compose_with_options(&options)
     }
@@ -193,7 +198,7 @@ impl DrawSvg {
     /// get the viewbox (computed if missing)
     pub fn view_box(&self) -> Option<RectF> {
         let ctx = self.ctx();
-        let options = DrawOptions::new(&ctx);
+        let options = BoundsOptions::new(&ctx);
         
         if let Item::Svg(TagSvg { view_box: Some(r), width, height, .. }) = &*self.svg.root {
             if let Some(size) = Vector(

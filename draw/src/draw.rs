@@ -20,6 +20,7 @@ use isolang::Language;
 use svg_text::FontCollection;
 use std::rc::Rc;
 use std::borrow::Cow;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Debug)]
 pub struct DrawContext<'a> {
@@ -63,7 +64,7 @@ impl<'a> DrawContext<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct DrawOptions<'a> {
+pub struct Options<'a> {
     pub ctx: &'a DrawContext<'a>,
 
     pub fill: Paint,
@@ -80,7 +81,6 @@ pub struct DrawOptions<'a> {
 
     pub transform: Transform2F,
 
-    pub clip_path: Option<ClipPath>, //ClipPathAttr,
     pub clip_rule: FillRule,
 
     pub view_box: Option<RectF>,
@@ -92,9 +92,9 @@ pub struct DrawOptions<'a> {
 
     pub lang: Option<Language>,
 }
-impl<'a> DrawOptions<'a> {
-    pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {
-        DrawOptions {
+impl<'a> Options<'a> {
+    pub fn new(ctx: &'a DrawContext<'a>) -> Options<'a> {
+        Options {
             ctx,
             opacity: 1.0,
             fill: Paint::black(),
@@ -110,7 +110,6 @@ impl<'a> DrawOptions<'a> {
             stroke_dasharray: None,
             stroke_dashoffset: 0.0,
             transform: Transform2F::from_scale(10.),
-            clip_path: None,
             clip_rule: FillRule::EvenOdd,
             view_box: None,
             time: Time::start(),
@@ -119,21 +118,45 @@ impl<'a> DrawOptions<'a> {
             lang: None,
         }
     }
-    pub fn bounds(&self, rect: RectF) -> Option<RectF> {
-        let has_fill = matches!(*self,
-            DrawOptions { ref fill, fill_opacity, .. }
-            if fill.is_visible() && fill_opacity > 0.);
-        let has_stroke = matches!(*self,
-            DrawOptions { ref stroke, stroke_opacity, .. }
-            if stroke.is_visible() && stroke_opacity > 0.
-        );
-
-        if has_stroke {
-            Some(self.transform * rect.dilate(self.stroke_style.line_width))
-        } else if has_fill {
-            Some(self.transform * rect)
-        } else {
-            None
+    pub fn has_stroke(&self) -> bool {
+        self.opacity > 0.0 &&
+        self.stroke_opacity > 0. &&
+        !matches!(self.stroke, Paint::None)
+    }
+    pub fn has_fill(&self) -> bool {
+        self.opacity > 0.0 &&
+        self.fill_opacity > 0. &&
+        !matches!(self.fill, Paint::None)
+    }
+    pub fn get_transform(&self) -> &Transform2F {
+        &self.transform
+    }
+    pub fn set_transform(&mut self, transform: Transform2F) {
+        self.transform = transform;
+    }
+    pub fn apply_transform(&mut self, transform: Transform2F) {
+        self.transform = self.transform * transform;
+    }
+    pub fn apply(&self, attrs: &Attrs) -> Options<'a> {
+        let mut stroke_style = self.stroke_style;
+        if let Some(length) = attrs.stroke_width.resolve(self) {
+            stroke_style.line_width = length;
+        }
+        Options {
+            clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
+            opacity: attrs.opacity.resolve(self).unwrap_or(1.0),
+            transform: self.transform * attrs.transform.resolve(self),
+            fill: attrs.fill.resolve(self),
+            fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
+            fill_opacity: attrs.fill_opacity.resolve(self).unwrap_or(self.fill_opacity),
+            stroke: attrs.stroke.resolve(self),
+            stroke_style,
+            stroke_opacity: attrs.stroke_opacity.resolve(self).unwrap_or(self.stroke_opacity),
+            stroke_dasharray: attrs.stroke_dasharray.resolve(self),
+            direction: attrs.direction.unwrap_or(self.direction),
+            font_size: attrs.font_size.resolve(self).unwrap_or(self.font_size),
+            lang: attrs.lang.or(self.lang),
+            .. *self
         }
     }
     fn resolve_paint(&self, paint: &Paint, opacity: f32) -> Option<PaPaint> {
@@ -151,6 +174,133 @@ impl<'a> DrawOptions<'a> {
             _ => None
         }
     }
+    pub fn resolve_length(&self, length: Length) -> Option<f32> {
+        let scale = match length.unit {
+            LengthUnit::None => 1.0,
+            LengthUnit::Cm => self.ctx.dpi * (1.0 / 2.54),
+            LengthUnit::Em => unimplemented!(),
+            LengthUnit::Ex => unimplemented!(),
+            LengthUnit::In => self.ctx.dpi,
+            LengthUnit::Mm => self.ctx.dpi * (1.0 / 25.4),
+            LengthUnit::Pc => unimplemented!(),
+            LengthUnit::Percent => return None,
+            LengthUnit::Pt => self.ctx.dpi * (1.0 / 75.),
+            LengthUnit::Px => 1.0
+        };
+        Some(length.num as f32 * scale)
+    }
+    pub fn resolve_length_along(&self, length: Length, axis: Axis) -> Option<f32> {
+        let scale = match length.unit {
+            LengthUnit::None => 1.0,
+            LengthUnit::Cm => self.ctx.dpi * (1.0 / 2.54),
+            LengthUnit::Em => unimplemented!(),
+            LengthUnit::Ex => unimplemented!(),
+            LengthUnit::In => self.ctx.dpi,
+            LengthUnit::Mm => self.ctx.dpi * (1.0 / 25.4),
+            LengthUnit::Pc => unimplemented!(),
+            LengthUnit::Percent => return match axis {
+                Axis::X => self.view_box.map(|r| r.width() * 0.01),
+                Axis::Y => self.view_box.map(|r| r.height() * 0.01),
+            },
+            LengthUnit::Pt => self.ctx.dpi * (1.0 / 75.),
+            LengthUnit::Px => 1.0
+        };
+        Some(length.num as f32 * scale)
+    }
+    pub fn apply_viewbox(&mut self, width: Option<LengthX>, height: Option<LengthY>, view_box: &Rect) {
+        let view_box = view_box.resolve(self);
+        let width = width.and_then(|l| l.try_resolve(self)).unwrap_or(view_box.width());
+        let height = height.and_then(|l| l.try_resolve(self)).unwrap_or(view_box.height());
+        let size = vec2f(width, height);
+        
+        self.apply_transform(Transform2F::from_scale(view_box.size().recip() * size) * Transform2F::from_translation(-view_box.origin()));
+        self.view_box = Some(view_box);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct DrawOptions<'a> {
+    pub common: Options<'a>,
+    pub clip_path: Option<(RectF, ClipPathId)>, //ClipPathAttr,
+}
+impl<'a> Deref for DrawOptions<'a> {
+    type Target = Options<'a>;
+    fn deref(&self) -> &Options<'a> {
+        &self.common
+    }
+}
+impl<'a> DerefMut for DrawOptions<'a> {
+    fn deref_mut (&mut self) -> &mut Options<'a> {
+        &mut self.common
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BoundsOptions<'a> {
+    pub common: Options<'a>,
+    pub clip_rect: Option<RectF>,
+}
+impl<'a> Deref for BoundsOptions<'a> {
+    type Target = Options<'a>;
+    fn deref(&self) -> &Options<'a> {
+        &self.common
+    }
+}
+impl<'a> DerefMut for BoundsOptions<'a> {
+    fn deref_mut (&mut self) -> &mut Options<'a> {
+        &mut self.common
+    }
+}
+impl<'a> BoundsOptions<'a> {
+    pub fn new(ctx: &'a DrawContext<'a>) -> BoundsOptions<'a> {
+        BoundsOptions {
+            common: Options::new(ctx),
+            clip_rect: None
+        }
+    }
+    pub fn apply(&self, attrs: &Attrs) -> BoundsOptions<'a> {
+        let common = self.common.apply(attrs);
+        let clip_rect = match attrs.clip_path {
+            Some(ClipPathAttr::Ref(ref id)) => {
+                if let Some(Item::ClipPath(p)) = self.ctx.resolve(id).map(|t| &**t) {
+                    let outline = p.resolve(&self);
+                    let inner_rect = outline.bounds();
+                    match self.clip_rect {
+                        None => Some(inner_rect),
+                        Some(outer_rect) => outer_rect.intersection(inner_rect),
+                    }
+                } else {
+                    println!("clip path missing: {}", id);
+                    None
+                }
+            }
+            _ => self.clip_rect,
+        };
+        BoundsOptions { common, clip_rect }
+    }
+    pub fn bounds(&self, rect: RectF) -> Option<RectF> {
+        let rect = if self.has_stroke() {
+            Some(self.transform * rect.dilate(self.stroke_style.line_width))
+        } else if self.has_fill() {
+            Some(self.transform * rect)
+        } else {
+            None
+        };
+        if let Some(clip) = self.clip_rect {
+            rect.and_then(|r| r.intersection(clip))
+        } else {
+            rect
+        }
+    }
+}
+
+impl<'a> DrawOptions<'a> {
+    pub fn new(ctx: &'a DrawContext<'a>) -> DrawOptions<'a> {
+        DrawOptions {
+            common: Options::new(ctx),
+            clip_path: None
+        }
+    }
     pub fn debug_outline(&self, scene: &mut Scene, path: &Outline, color: ColorU) {
         dbg!(path);
         let paint_id = scene.push_paint(&PaPaint::from_color(color));
@@ -159,28 +309,9 @@ impl<'a> DrawOptions<'a> {
     pub fn draw(&self, scene: &mut Scene, path: &Outline) {
         self.draw_transformed(scene, path, Transform2F::default());
     }
-    fn clip_path_id(&self, scene: &mut Scene) -> Option<ClipPathId> {
-        if let Some(ref clip_path) = self.clip_path {
-            let mut clip_path = clip_path.clone();
-            clip_path.set_fill_rule(self.clip_rule);
-            
-            // begin debug
-            /*
-            let paint = PaPaint::from_color(ColorU::new(255, 0, 255, 127));
-            let paint_id = scene.push_paint(&paint);
-            let draw_path = DrawPath::new(clip_path.outline().clone(), paint_id);
-            scene.push_draw_path(draw_path);
-            */
-            // end debug
-
-            Some(scene.push_clip_path(clip_path))
-        } else {
-            None
-        }
-    }
     pub fn draw_transformed(&self, scene: &mut Scene, path: &Outline, transform: Transform2F) {
         let tr = self.transform * transform;
-        let clip_path_id = self.clip_path_id(scene);
+        let clip_path_id = self.clip_path.map(|(_, id)| id);
         if let Some(ref fill) = self.resolve_paint(&self.fill, self.fill_opacity) {
             let outline = path.clone().transformed(&tr);
             let paint_id = scene.push_paint(fill);
@@ -208,89 +339,58 @@ impl<'a> DrawOptions<'a> {
             }
         }
     }
-    pub fn transform(&mut self, transform: Transform2F) {
-        self.transform = self.transform * transform;
-    }
-    pub fn apply(&self, attrs: &Attrs) -> DrawOptions<'a> {
-        let mut stroke_style = self.stroke_style;
-        if let Some(length) = attrs.stroke_width.resolve(self) {
-            stroke_style.line_width = length;
-        }
-        let mut new = DrawOptions {
-            clip_path: None,
-            clip_rule: attrs.clip_rule.unwrap_or(self.clip_rule),
-            opacity: attrs.opacity.resolve(self).unwrap_or(1.0),
-            transform: self.transform * attrs.transform.resolve(self),
-            fill: attrs.fill.resolve(self),
-            fill_rule: attrs.fill_rule.unwrap_or(self.fill_rule),
-            fill_opacity: attrs.fill_opacity.resolve(self).unwrap_or(self.fill_opacity),
-            stroke: attrs.stroke.resolve(self),
-            stroke_style,
-            stroke_opacity: attrs.stroke_opacity.resolve(self).unwrap_or(self.stroke_opacity),
-            stroke_dasharray: attrs.stroke_dasharray.resolve(self),
-            direction: attrs.direction.unwrap_or(self.direction),
-            font_size: attrs.font_size.resolve(self).unwrap_or(self.font_size),
-            lang: attrs.lang.or(self.lang),
-            .. *self
-        };
-        new.clip_path = match attrs.clip_path {
-            None => self.clip_path.clone(),
-            Some(ClipPathAttr::None) => None,
+    pub fn apply(&self, scene: &mut Scene, attrs: &Attrs) -> DrawOptions<'a> {
+        let common = self.common.apply(attrs);
+        dbg!(&attrs.clip_path);
+        let clip_path = match attrs.clip_path {
             Some(ClipPathAttr::Ref(ref id)) => {
                 if let Some(Item::ClipPath(p)) = self.ctx.resolve(id).map(|t| &**t) {
-                    let outline = p.resolve(&new);
-                    Some(ClipPath::new(outline))
+                    let outline = p.resolve(&common);
+                    let clip_rect = outline.bounds();
+                    println!("{:?}, {:?}, {:?}", p, outline, clip_rect);
+                    // begin debug
+                    /*
+                    let paint = PaPaint::from_color(ColorU::new(255, 0, 255, 127));
+                    let paint_id = scene.push_paint(&paint);
+                    
+                    let draw_path = DrawPath::new(outline.clone(), paint_id);
+                    scene.push_draw_path(draw_path);
+                    */
+                    // end debug
+
+                    let push_clip_path = |id: Option<ClipPathId>| {
+                        let mut clip_path = ClipPath::new(outline);
+                        clip_path.set_fill_rule(self.clip_rule);
+                        clip_path.set_clip_path(id);
+                        scene.push_clip_path(clip_path)
+                    };
+
+                    if let Some((rect, id)) = self.clip_path {
+                        if let Some(intersection) = rect.intersection(clip_rect) {
+                            Some((intersection, push_clip_path(Some(id))))
+                        } else {
+                            None
+                        }
+                    } else {
+                        Some((clip_rect, push_clip_path(None)))
+                    }
                 } else {
                     println!("clip path missing: {}", id);
                     None
                 }
             }
+            _ => self.clip_path,
         };
 
-        debug!("fill {:?} + {:?} -> {:?}", self.fill, attrs.fill, new.fill);
-        debug!("stroke {:?} + {:?} -> {:?}", self.stroke, attrs.stroke, new.stroke);
-        new
-    }
-    pub fn resolve_length(&self, length: Length) -> Option<f32> {
-        let scale = match length.unit {
-            LengthUnit::None => 1.0,
-            LengthUnit::Cm => self.ctx.dpi * (1.0 / 2.54),
-            LengthUnit::Em => unimplemented!(),
-            LengthUnit::Ex => unimplemented!(),
-            LengthUnit::In => self.ctx.dpi,
-            LengthUnit::Mm => self.ctx.dpi * (1.0 / 25.4),
-            LengthUnit::Pc => unimplemented!(),
-            LengthUnit::Percent => return None,
-            LengthUnit::Pt => self.ctx.dpi * (1.0 / 75.),
-            LengthUnit::Px => 1.0
-        };
-        Some(length.num as f32 * scale)
-    }
-    pub fn resolve_length_along(&self, length: Length, axis: Axis) -> Option<f32> {
-        let scale = match length.unit {
-            LengthUnit::None => 1.0,
-            LengthUnit::Cm => self.ctx.dpi * (1.0 / 2.54),
-            LengthUnit::Em => unimplemented!(),
-            LengthUnit::Ex => unimplemented!(),
-            LengthUnit::In => self.ctx.dpi,
-            LengthUnit::Mm => self.ctx.dpi * (1.0 / 25.4),
-            LengthUnit::Pc => unimplemented!(),
-            LengthUnit::Percent => return match axis {
-                Axis::X => self.view_box.map(|r| r.width()),
-                Axis::Y => self.view_box.map(|r| r.height()),
-            },
-            LengthUnit::Pt => self.ctx.dpi * (1.0 / 75.),
-            LengthUnit::Px => 1.0
-        };
-        Some(length.num as f32 * scale)
-    }
-    pub fn apply_viewbox(&mut self, width: Option<LengthX>, height: Option<LengthY>, view_box: &Rect) {
-        let view_box = view_box.resolve(self);
-        let width = width.and_then(|l| l.try_resolve(self)).unwrap_or(view_box.width());
-        let height = height.and_then(|l| l.try_resolve(self)).unwrap_or(view_box.height());
-        let size = vec2f(width, height);
+        debug!("fill {:?} + {:?} -> {:?}", self.fill, attrs.fill, common.fill);
+        debug!("stroke {:?} + {:?} -> {:?}", self.stroke, attrs.stroke, common.stroke);
         
-        self.transform(Transform2F::from_scale(view_box.size().recip() * size) * Transform2F::from_translation(-view_box.origin()));
-        self.view_box = Some(view_box);
+        DrawOptions { common, clip_path: dbg!(clip_path) }
+    }
+    pub fn bounds_options(&self) -> BoundsOptions<'a> {
+        BoundsOptions {
+            common: self.common.clone(),
+            clip_rect: self.clip_path.map(|(rect, _)| rect)
+        }
     }
 }

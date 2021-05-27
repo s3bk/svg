@@ -1,33 +1,36 @@
 use pathfinder_content::outline::Outline;
 use crate::prelude::*;
-use crate::rect::rect_outline;
 
 impl Resolve for TagClipPath {
     type Output = Outline;
-    fn resolve(&self, options: &DrawOptions) -> Outline {
+    fn resolve(&self, options: &Options) -> Outline {
         let mut outline = Outline::new();
         for item in &self.items {
-            match item {
-                Item::Path(path) => {
-                    let tr = options.transform * path.attrs.transform.resolve(options);
-                    outline.push_outline(path.outline.clone().transformed(&tr));
-                }
-                Item::Rect(rect) => {
-                    let tr = options.transform * rect.attrs.transform.resolve(options);
-                    if let Some((_, o)) = rect_outline(rect, options) {
-                        outline.push_outline(o.transformed(&tr));
-                    }
-                }
-                _ => {}
+            let o = match item {
+                Item::Path(path) => path.outline(options),
+                Item::Rect(rect) => rect.outline(options),
+                Item::Circle(circle) => circle.outline(options),
+                Item::Polygon(polygon) => polygon.outline(options),
+                _ => None
+            };
+            if let Some(o) = o {
+                outline.push_outline(o)
             }
         }
         outline
     }
 }
 
+impl Shape for TagPath {
+    fn outline(&self, options: &Options) -> Option<Outline> {
+        let options = options.apply(&self.attrs);
+        Some(self.outline.clone().transformed(options.get_transform()))
+    }
+}
+
 
 impl DrawItem for TagPath {
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         if self.attrs.display && self.outline.len() > 0 {
             let options = options.apply(&self.attrs);
             options.bounds(self.outline.bounds())
@@ -36,7 +39,7 @@ impl DrawItem for TagPath {
         }
     }
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let options = options.apply(&self.attrs);
+        let options = options.apply(scene, &self.attrs);
         options.draw(scene, &self.outline);
     }
 }

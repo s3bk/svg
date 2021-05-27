@@ -3,6 +3,8 @@ use svg_draw::{DrawSvg};
 use svg_text::{FontCollection, Font};
 use std::sync::Arc;
 use pathfinder_rasterize::Rasterizer;
+use pathfinder_color::ColorF;
+use pathfinder_renderer::gpu::options::RendererLevel;
 
 fn main() {
     env_logger::init();
@@ -19,6 +21,6 @@ fn main() {
 
     let svg = Svg::from_data(&data).unwrap();
     let scene = DrawSvg::new(svg, fonts).compose();
-    let image = Rasterizer::new().rasterize(scene, None);
+    let image = Rasterizer::new_with_level(RendererLevel::D3D9).rasterize(scene, Some(ColorF::white()));
     image.save(&output).unwrap();
 }

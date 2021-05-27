@@ -2,7 +2,7 @@ macro_rules! resolve_clone {
     ($name:ident) => (
         impl Resolve for $name {
             type Output = Self;
-            fn resolve(&self, options: &DrawOptions) -> Self::Output {
+            fn resolve(&self, options: &Options) -> Self::Output {
                 self.clone()
             }
         }

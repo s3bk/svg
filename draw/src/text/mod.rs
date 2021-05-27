@@ -31,7 +31,7 @@ impl FontCache {
 
 impl DrawItem for TagText {
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let options = options.apply(&self.attrs);
+        let options = options.apply(scene, &self.attrs);
         let state = TextState {
             pos: Vector2F::zero(),
             rot: 0.0
@@ -41,7 +41,7 @@ impl DrawItem for TagText {
             draw_items(scene, &options, font_cache, &self.pos, &self.items, state, 0, None);
         }
     }
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         None
     }
 }
@@ -95,7 +95,7 @@ fn draw_items(scene: &mut Scene, options: &DrawOptions, font_cache: &FontCache, 
                 char_idx += num_chars;
             },
             Item::TSpan(ref span) => {
-                let options = options.apply(&span.attrs);
+                let options = options.apply(scene, &span.attrs);
                 let (new_state, new_idx) = draw_items(scene, &options, font_cache, &span.pos, &span.items, state, char_idx, Some(&moves));
                 state = new_state;
                 char_idx = new_idx;

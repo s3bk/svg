@@ -21,11 +21,11 @@ struct PartialRadialGradient<'a> {
 }
 
 pub trait BuildGradient {
-    fn build(&self, options: &DrawOptions, opacity: f32) -> Gradient;
+    fn build(&self, options: &Options, opacity: f32) -> Gradient;
 }
 
 impl BuildGradient for TagLinearGradient {
-    fn build(&self, options: &DrawOptions, opacity: f32) -> Gradient {
+    fn build(&self, options: &Options, opacity: f32) -> Gradient {
         if let Some(item) = self.href.as_ref().and_then(|href| options.ctx.resolve_href(&href)) {
             match &**item {
                 Item::LinearGradient(other) => {
@@ -88,7 +88,7 @@ fn point_or_percent((x, y): (Option<LengthX>, Option<LengthY>), (dx, dy): (f64, 
 }
 
 impl BuildGradient for TagRadialGradient {
-    fn build(&self, options: &DrawOptions, opacity: f32) -> Gradient {
+    fn build(&self, options: &Options, opacity: f32) -> Gradient {
         if let Some(item) = self.href.as_ref().and_then(|href| options.ctx.resolve(&href[1..])) {
             match &**item {
                 Item::RadialGradient(ref other) => {
@@ -123,7 +123,7 @@ impl BuildGradient for TagRadialGradient {
 }
 
 impl<'a> PartialLinearGradient<'a> {
-    fn build(self, options: &DrawOptions, opacity: f32) -> Gradient {
+    fn build(self, options: &Options, opacity: f32) -> Gradient {
         let from = point_or_percent(self.from, (0., 0.));
         let to = point_or_percent(self.to, (100., 0.));
         let gradient_transform = self.gradient_transform.unwrap_or_default();
@@ -141,7 +141,7 @@ impl<'a> PartialLinearGradient<'a> {
     }
 }
 impl<'a> PartialRadialGradient<'a> {
-    fn build(&self, options: &DrawOptions, opacity: f32) -> Gradient {
+    fn build(&self, options: &Options, opacity: f32) -> Gradient {
         let center = point_or_percent(self.center, (50., 50.));
         let focus = Vector(self.focus.0.unwrap_or(center.0), self.focus.1.unwrap_or(center.1));
         let radius = length_or_percent(self.radius, 50.);

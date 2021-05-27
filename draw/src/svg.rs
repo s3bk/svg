@@ -1,14 +1,12 @@
 use crate::prelude::*;
 
-use std::sync::Arc;
-
 impl DrawItem for TagSvg {
-    fn bounds(&self, options: &DrawOptions) -> Option<RectF> {
+    fn bounds(&self, options: &BoundsOptions) -> Option<RectF> {
         self.view_box.as_ref().map(|r| r.resolve(options))
         .or_else(|| max_bounds(self.items.iter().flat_map(|item| item.bounds(&options))))
     }
     fn draw_to(&self, scene: &mut Scene, options: &DrawOptions) {
-        let mut options = options.apply(&self.attrs);
+        let mut options = options.apply(scene, &self.attrs);
         if let Some(ref view_box) = self.view_box {
             options.apply_viewbox(self.width, self.height, view_box);
         }

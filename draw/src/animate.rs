@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 impl<T> Resolve for Animate<T> where T: Resolve, T::Output: Interpolate {
     type Output = Option<T::Output>;
-    fn resolve(&self, options: &DrawOptions) -> Option<T::Output> {
+    fn resolve(&self, options: &Options) -> Option<T::Output> {
         let x = self.timing.pos(options.time);
         if x < 0.0 {
             return None;
