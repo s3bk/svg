@@ -13,11 +13,11 @@ use pathfinder_geometry::{
     rect::RectF,
 };
 use std::sync::Arc;
+use std::fmt::{self, Debug};
 use itertools::Itertools;
 use unic_segment::{WordBounds, GraphemeIndices};
 use unic_ucd_category::GeneralCategory;
 use unicode_joining_type::{get_joining_type, JoiningType};
-use whatlang::Lang;
 use isolang::Language;
 
 #[derive(Clone)]
@@ -31,6 +31,11 @@ impl std::ops::Deref for Font {
     type Target = dyn font::Font;
     fn deref(&self) -> &dyn font::Font {
         &*self.0
+    }
+}
+impl Debug for Font {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name().full_name.as_ref().map(|s| s.as_str()).unwrap_or_default())
     }
 }
 
