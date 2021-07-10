@@ -22,6 +22,7 @@ mod prelude {
     };
     pub use svgtypes::{Length, LengthUnit};
 }
+use std::borrow::Borrow;
 
 mod path;
 mod rect;
@@ -135,94 +136,6 @@ draw_items!(
     }
 );
 
-pub struct DrawSvg {
-    svg: Svg,
-
-    #[cfg(feature="text")]
-    fallback_fonts: Option<Arc<FontCollection>>,
-}
-impl DrawSvg {
-    pub fn new_without_fonts(svg: Svg) -> DrawSvg {
-        DrawSvg {
-            svg: svg,
-            
-            #[cfg(feature="text")]
-            fallback_fonts: None
-        }
-    }
-    #[cfg(feature="text")]
-    pub fn new(svg: Svg, fallback_fonts: Arc<FontCollection>) -> DrawSvg {
-        DrawSvg {
-            svg,
-            fallback_fonts: Some(fallback_fonts)
-        }
-    }
-    pub fn compose(&self) -> Scene {
-        self.compose_with_transform(Transform2F::default())
-    }
-
-    pub fn compose_with_transform(&self, transform: Transform2F) -> Scene {
-        let ctx = self.ctx();
-        let mut options = DrawOptions::new(&ctx);
-        options.set_transform(transform);
-        //options.view_box = Some(RectF::new(Vector2F::zero(), Vector2F::new(10., 10.)));
-        self.compose_with_options(&options)
-    }
-
-    pub fn compose_with_options(&self, options: &DrawOptions) -> Scene {
-        let mut scene = Scene::new();
-        
-        if let Some(vb) = self.view_box() {
-            scene.set_view_box(options.transform * vb);
-        }
-        self.svg.root.draw_to(&mut scene, options);
-        scene
-    }
-
-    pub fn compose_with_viewbox(&self, view_box: RectF) -> Scene {
-        let ctx = self.ctx();
-        let options = DrawOptions::new(&ctx);
-        let mut scene = Scene::new();
-        scene.set_view_box(options.transform * view_box);
-        self.svg.root.draw_to(&mut scene, &options);
-        scene
-    }
-
-    pub fn compose_to_with_transform(&self, scene: &mut Scene, transform: Transform2F) {
-        let ctx = self.ctx();
-        let mut options = DrawOptions::new(&ctx);
-        options.transform = transform;
-        self.svg.root.draw_to(scene, &options);
-    }
-
-    /// get the viewbox (computed if missing)
-    pub fn view_box(&self) -> Option<RectF> {
-        let ctx = self.ctx();
-        let options = BoundsOptions::new(&ctx);
-        
-        if let Item::Svg(TagSvg { view_box: Some(r), width, height, .. }) = &*self.svg.root {
-            if let Some(size) = Vector(
-                width.unwrap_or(r.width),
-                height.unwrap_or(r.height)
-            ).try_resolve(&options) {
-                return Some(RectF::new(Vector2F::zero(), size));
-            }
-        }
-        self.svg.root.bounds(&options)
-    }
-
-    pub fn ctx(&self) -> DrawContext {
-        #[cfg(feature="text")]
-        if let Some(ref f) = self.fallback_fonts {
-            DrawContext::new(&self.svg, f.clone())
-        } else {
-            DrawContext::new_without_fonts(&self.svg)
-        }
-
-        #[cfg(not(feature="text"))]
-        DrawContext::new_without_fonts(&self.svg)
-    }
-}
 
 use font::SvgGlyph;
 pub fn draw_glyph(glyph: &SvgGlyph, scene: &mut Scene, transform: Transform2F) {

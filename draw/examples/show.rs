@@ -3,11 +3,10 @@ use pathfinder_renderer::scene::Scene;
 //use pathfinder_resources::embedded::EmbeddedResourceLoader;
 use pathfinder_resources::fs::FilesystemResourceLoader;
 use std::path::PathBuf;
-use svg_dom::{Svg, Time};
-use svg_draw::{DrawSvg, DrawOptions, DrawContext};
+use svg_dom::{Svg};
+use svg_draw::DrawContext;
 use pathfinder_geometry::{
     vector::Vector2F,
-    transform2d::Transform2F,
     rect::RectF,
 };
 use svg_text::{FontCollection, Font};
@@ -23,26 +22,26 @@ fn main() {
     config.zoom = true;
     config.pan = true;
 
-    let fonts = Arc::new(FontCollection::from_fonts(vec![
+    let fonts = FontCollection::from_fonts(vec![
         Font::load(include_bytes!("../../resources/latinmodern-math.otf")),
         Font::load(include_bytes!("../../resources/NotoNaskhArabic-Regular.ttf")),
         Font::load(include_bytes!("../../resources/NotoSerifBengali-Regular.ttf")),
-    ]));
+    ]);
 
     let svg = Svg::from_data(&data).unwrap();
     show(View::new(svg, fonts), config)
 }
 
 struct View {
-    svg: DrawSvg,
+    svg: Svg,
+    fonts: FontCollection,
     view_box: Option<RectF>
 }
 impl View {
-    fn new(svg: Svg, fonts: Arc<FontCollection>) -> View {
-        let svg = DrawSvg::new(svg, fonts);
-        let view_box = svg.view_box();
+    fn new(svg: Svg, fonts: FontCollection) -> View {
+        let view_box = DrawContext::new(&svg, &fonts).view_box();
         View {
-            svg, view_box
+            svg, fonts, view_box
         }
     }
 }
@@ -54,7 +53,8 @@ impl Interactive for View {
         } else {
             scene.set_view_box(RectF::new(Vector2F::zero(), ctx.window_size()))
         };
-        self.svg.compose_to_with_transform(&mut scene, dbg!(ctx.view_transform()));
+        DrawContext::new(&self.svg, &self.fonts)
+            .compose_to_with_transform(&mut scene, dbg!(ctx.view_transform()));
         scene
     }
     fn window_size_hint(&self) -> Option<Vector2F> {

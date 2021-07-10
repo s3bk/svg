@@ -29,7 +29,7 @@ pub struct DrawContext<'a> {
     pub dpi: f32,
 
     #[cfg(feature="text")]
-    pub font_cache: Option<FontCache>,
+    pub font_cache: Option<FontCache<'a>>,
 }
 impl<'a> DrawContext<'a> {
     pub fn new_without_fonts(svg: &'a Svg) -> Self {
@@ -43,7 +43,7 @@ impl<'a> DrawContext<'a> {
     }
 
     #[cfg(feature="text")]
-    pub fn new(svg: &'a Svg, fallback_fonts: Arc<FontCollection>) -> Self {
+    pub fn new(svg: &'a Svg, fallback_fonts: &'a FontCollection) -> Self {
         DrawContext {
             svg,
             dpi: 75.0,
@@ -60,6 +60,55 @@ impl<'a> DrawContext<'a> {
         } else {
             None
         }
+    }
+    pub fn compose(&'a self) -> Scene {
+        self.compose_with_transform(Transform2F::default())
+    }
+
+    pub fn compose_with_transform(&'a self, transform: Transform2F) -> Scene {
+        let mut options = DrawOptions::new(self);
+        options.set_transform(transform);
+        //options.view_box = Some(RectF::new(Vector2F::zero(), Vector2F::new(10., 10.)));
+        self.compose_with_options(&options)
+    }
+
+    pub fn compose_with_options(&'a self, options: &DrawOptions) -> Scene {
+        let mut scene = Scene::new();
+        
+        if let Some(vb) = self.view_box() {
+            scene.set_view_box(options.transform * vb);
+        }
+        self.svg.root.draw_to(&mut scene, options);
+        scene
+    }
+
+    pub fn compose_with_viewbox(&'a self, view_box: RectF) -> Scene {
+        let options = DrawOptions::new(self);
+        let mut scene = Scene::new();
+        scene.set_view_box(options.transform * view_box);
+        self.svg.root.draw_to(&mut scene, &options);
+        scene
+    }
+
+    pub fn compose_to_with_transform(&'a self, scene: &mut Scene, transform: Transform2F) {
+        let mut options = DrawOptions::new(self);
+        options.transform = transform;
+        self.svg.root.draw_to(scene, &options);
+    }
+
+    /// get the viewbox (computed if missing)
+    pub fn view_box(&'a self) -> Option<RectF> {
+        let options = BoundsOptions::new(self);
+        
+        if let Item::Svg(TagSvg { view_box: Some(r), width, height, .. }) = &*self.svg.root {
+            if let Some(size) = Vector(
+                width.unwrap_or(r.width),
+                height.unwrap_or(r.height)
+            ).try_resolve(&options) {
+                return Some(RectF::new(Vector2F::zero(), size));
+            }
+        }
+        self.svg.root.bounds(&options)
     }
 }
 

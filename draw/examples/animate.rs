@@ -2,13 +2,14 @@ use pathfinder_view::{show, Config, Interactive, Context, Emitter};
 use pathfinder_renderer::scene::Scene;
 use pathfinder_resources::embedded::EmbeddedResourceLoader;
 use svg_dom::{Svg, Time};
-use svg_draw::{DrawSvg, DrawOptions, DrawContext};
+use svg_draw::{DrawOptions, DrawContext};
 use std::time::Instant;
 use svg_text::{Font, FontCollection};
 use std::sync::Arc;
 
 struct AnimatedSvg {
-    svg: DrawSvg,
+    svg: Svg,
+    fonts: FontCollection,
     start: Instant
 }
 
@@ -22,10 +23,10 @@ impl Interactive for AnimatedSvg {
         ctx.request_redraw();
     }
     fn scene(&mut self, ctx: &mut Context) -> Scene {
-        let ctx = self.svg.ctx();
+        let ctx = DrawContext::new(&self.svg, &self.fonts);
         let mut options = DrawOptions::new(&ctx);
         options.time = Time::from_seconds(self.start.elapsed().as_secs_f64());
-        self.svg.compose_with_options(&options)
+        ctx.compose_with_options(&options)
     }
 }
 
@@ -37,15 +38,16 @@ fn main() {
     config.zoom = true;
     config.pan = false;
 
-    let fonts = Arc::new(FontCollection::from_fonts(vec![
+    let fonts = FontCollection::from_fonts(vec![
         Font::load(include_bytes!("../../resources/latinmodern-math.otf")),
         Font::load(include_bytes!("../../resources/NotoNaskhArabic-Regular.ttf")),
         Font::load(include_bytes!("../../resources/NotoSerifBengali-Regular.ttf")),
-    ]));
+    ]);
 
     let svg = Svg::from_data(&data).unwrap();
     show(AnimatedSvg {
-        svg: DrawSvg::new(svg, fonts),
+        svg,
+        fonts,
         start: Instant::now()
     }, config)
 }

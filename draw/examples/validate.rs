@@ -1,19 +1,19 @@
 use svg_dom::{Svg};
-use svg_draw::{DrawSvg};
+use svg_draw::{DrawContext};
 use svg_text::{FontCollection, Font};
 use std::sync::Arc;
 use pathfinder_rasterize::Rasterizer;
 use pathfinder_color::ColorF;
 use std::path::Path;
-use image::{io::Reader, Rgba, RgbaImage};
+use image::{io::Reader, Rgba};
 
 fn main() {
     env_logger::init();
-    let fonts = Arc::new(FontCollection::from_fonts(vec![
+    let fonts = FontCollection::from_fonts(vec![
         Font::load(include_bytes!("../../resources/latinmodern-math.otf")),
         Font::load(include_bytes!("../../resources/NotoNaskhArabic-Regular.ttf")),
         Font::load(include_bytes!("../../resources/NotoSerifBengali-Regular.ttf")),
-    ]));
+    ]);
 
     let test_data = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_data"));
     let svgs = test_data.join("svg").read_dir().unwrap();
@@ -28,7 +28,7 @@ fn main() {
         let data = std::fs::read(e.path()).unwrap();
 
         let svg = Svg::from_data(&data).unwrap();
-        let scene = DrawSvg::new(svg, fonts.clone()).compose();
+        let scene = DrawContext::new(&svg, &fonts).compose();
         let mut image = Rasterizer::new().rasterize(scene, Some(ColorF::white()));
 
         let mut png_path = pngs.join(&name);

@@ -14,6 +14,7 @@ use pathfinder_geometry::{
 };
 use std::sync::Arc;
 use std::fmt::{self, Debug};
+use std::ops::Deref;
 use itertools::Itertools;
 use unic_segment::{WordBounds, GraphemeIndices};
 use unic_ucd_category::GeneralCategory;
@@ -55,6 +56,13 @@ impl FontCollection {
     }
     pub fn add_font(&mut self, font: Font) {
         self.fonts.push(font);
+    }
+}
+impl Deref for FontCollection {
+    type Target = [Font];
+    #[inline]
+    fn deref(&self) -> &[Font] {
+        &self.fonts
     }
 }
 
@@ -176,7 +184,7 @@ fn sub_pass<F, G>(gsub: &GSub, lang: &LanguageSystem, meta: &[MetaGlyph], gids: 
     }
 }
 
-fn process_chunk(font: &Font, language: Option<Tag>, rtl: bool, meta: &[MetaGlyph], state: &mut State) {
+fn process_chunk(font: &Font, font_idx: usize, language: Option<Tag>, rtl: bool, meta: &[MetaGlyph], state: &mut State) {
     if let Some(fm) = font.vmetrics() {
         let s = font.font_matrix().m22();
         let vm = VMetrics {
@@ -246,24 +254,23 @@ fn process_chunk(font: &Font, language: Option<Tag>, rtl: bool, meta: &[MetaGlyp
                 }
             };
 
-            let svg = font.svg_glyph(gid).cloned();
-            let glyph = GlyphVariant {
-                common: glyph,
-                svg
-            };
-
             let transform = Transform2F::from_scale(vec2f(1.0, -1.0)) * font.font_matrix();
             state.offset += advance;
-            state.glyphs.push(LayoutGlyph { glyph, transform, offset, index });
+            state.glyphs.push(LayoutGlyph { gid, transform, offset, index, font_idx });
         }
     }
 }
 
 pub struct LayoutGlyph {
-    pub glyph: GlyphVariant,
+    pub gid: GlyphId,
     pub transform: Transform2F,
     pub offset: Vector2F,
+
+    // byte index of this glyph in the input
     pub index: usize,
+    
+    // index of the font in the fontcollection this glyph belongs to
+    pub font_idx: usize,
 }
 
 #[derive(Copy, Clone)]
@@ -279,9 +286,9 @@ struct State {
     vmetrics: Option<VMetrics>,
 }
 
-fn font_for_text<'a>(fonts: &'a [Font], text: &str, meta: &[MetaGlyph]) -> Option<&'a Font> {
-    fonts.iter()
-        .filter(|font|
+fn font_for_text<'a>(fonts: &'a [Font], text: &str, meta: &[MetaGlyph]) -> Option<(usize, &'a Font)> {
+    fonts.iter().enumerate()
+        .filter(|(_, font)|
             text.chars().zip(meta).all(|(c, m)| {
                 match m.category {
                     GeneralCategory::Format => true,
@@ -313,37 +320,33 @@ impl FontCollection {
             compute_joining(&mut meta);
             
             // try to find a font that has all glyphs
-            if let Some(font) = font_for_text(fonts, word, &meta) {
-                process_chunk(font, lang, rtl, &meta, &mut state);
+            if let Some((font_idx, font)) = font_for_text(fonts, word, &meta) {
+                process_chunk(font, font_idx, lang, rtl, &meta, &mut state);
             } else {
                 let mut start = 0;
                 let mut meta_idx = 0;
                 let mut current_font = None;
                 for (idx, grapheme) in GraphemeIndices::new(word) {
                     let meta_len = grapheme.chars().count();
-                    if let Some(font) = font_for_text(fonts, grapheme, &meta[meta_idx .. meta_idx + meta_len]) {
-                        if Some(font as *const _) != current_font.map(|f| f as *const _) && idx > 0 {
-                            // flush so far
-                            process_chunk(font, lang, rtl, &meta[start .. idx], &mut state);
+                    if let Some((font_idx, font)) = font_for_text(fonts, grapheme, &meta[meta_idx .. meta_idx + meta_len]) {
+                        if Some(font_idx) != current_font.map(|(i, _)| i) && idx > 0 {
+                            // flush so fart.0
+                            process_chunk(font, font_idx, lang, rtl, &meta[start .. idx], &mut state);
                             start = idx;
                         }
-                        current_font = Some(font);
+                        current_font = Some((font_idx, font));
                     } else {
                         current_font = None;
                         warn!("no font for {:?}", grapheme);
                     }
                     meta_idx += meta_len;
                 }
-                if let Some(font) = current_font {
-                    process_chunk(font, lang, rtl, &meta[meta_idx ..], &mut state);
+                if let Some((font_idx, font)) = current_font {
+                    process_chunk(font, font_idx, lang, rtl, &meta[meta_idx ..], &mut state);
                 }
             }
         }
 
-
-        let bbox: RectF = state.glyphs.iter()
-            .map(|g| Transform2F::from_translation(g.offset) * g.transform * g.glyph.common.path.bounds())
-            .fold1(|a, b| a.union_rect(b)).unwrap_or_default();
         let (font_bounding_box_ascent, font_bounding_box_descent) = fonts.iter().filter_map(
             |f| {
                 let s = f.font_matrix().m22();
@@ -361,10 +364,19 @@ impl FontCollection {
         };
 
         Layout {
-            bbox,
             glyphs: state.glyphs,
             metrics,
         }
+    }
+
+    pub fn layout_bbox(&self, layout: &Layout) -> RectF {
+        layout.glyphs.iter()
+            .map(|g| {
+                let glyph = self[g.font_idx].glyph(g.gid).unwrap();
+                let bounds = glyph.path.bounds();
+                Transform2F::from_translation(g.offset) * g.transform * bounds
+            })
+            .fold1(|a, b| a.union_rect(b)).unwrap_or_default()
     }
 }
 
@@ -383,7 +395,6 @@ pub struct GlyphVariant {
 
 pub struct Layout {
     pub metrics: TextMetrics,
-    pub bbox: RectF,
     pub glyphs: Vec<LayoutGlyph>
 }
 

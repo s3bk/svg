@@ -10,18 +10,18 @@ use crate::draw_glyph;
 use unic_segment::{WordBounds, GraphemeIndices};
 
 #[derive(Clone)]
-pub struct FontCache {
+pub struct FontCache<'a> {
     // TODO: use a lock-free map
-    entries: Arc<Mutex<HashMap<String, Arc<FontCollection>>>>,
-    fallback: Arc<FontCollection>,
+    entries: Arc<Mutex<HashMap<String, &'a FontCollection>>>,
+    fallback: &'a FontCollection,
 }
-impl fmt::Debug for FontCache {
+impl<'a> fmt::Debug for FontCache<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "FontCache")
     }
 }
-impl FontCache {
-    pub fn new(fallback: Arc<FontCollection>) -> Self {
+impl<'a> FontCache<'a> {
+    pub fn new(fallback: &'a FontCollection) -> Self {
         FontCache {
             entries: Arc::new(Mutex::new(HashMap::new())),
             fallback,
@@ -63,10 +63,10 @@ impl TextState {
     }
 }
 
-fn chunk(scene: &mut Scene, options: &DrawOptions, s: &str, state: TextState, font: &FontCollection) -> Vector2F {
+fn chunk(scene: &mut Scene, options: &DrawOptions, s: &str, state: TextState, font_collection: &FontCollection) -> Vector2F {
     debug!("{} {:?}", s, state);
-    let layout = Chunk::new(s, options.direction).layout(font, options.lang);
-    draw_layout(&layout, scene, &options, state)
+    let layout = Chunk::new(s, options.direction).layout(font_collection, options.lang);
+    draw_layout(font_collection, &layout, scene, &options, state)
 }
 
 fn draw_items(scene: &mut Scene, options: &DrawOptions, font_cache: &FontCache, pos: &GlyphPos, items: &[Arc<Item>], mut state: TextState, mut char_idx: usize, parent_moves: Option<&Moves>) -> (TextState, usize) {
@@ -107,17 +107,18 @@ fn draw_items(scene: &mut Scene, options: &DrawOptions, font_cache: &FontCache, 
     (state, char_idx)
 }
 
-fn draw_layout(layout: &ChunkLayout, scene: &mut Scene, options: &DrawOptions, state: TextState) -> Vector2F {
+fn draw_layout(font_collection: &FontCollection, layout: &ChunkLayout, scene: &mut Scene, options: &DrawOptions, state: TextState) -> Vector2F {
     for &(_, offset, ref sublayout) in &layout.parts {
         for glyph in &sublayout.glyphs {
             let chunk_tr = Transform2F::from_translation(state.pos) * Transform2F::from_rotation(deg2rad(state.rot))
                 * Transform2F::from_scale(options.font_size)
                 * Transform2F::from_translation(offset + glyph.offset);
             let tr = chunk_tr * glyph.transform;
-            if let Some(ref svg) = glyph.glyph.svg {
+            let font = &font_collection[glyph.font_idx];
+            if let Some(ref svg) = font.svg_glyph(glyph.gid) {
                 draw_glyph(svg, scene, tr);
             } else {
-                options.draw_transformed(scene, &glyph.glyph.common.path, tr);
+                options.draw_transformed(scene, &font.glyph(glyph.gid).unwrap().path, tr);
             }
         }
     }
@@ -165,7 +166,7 @@ impl<'a> Moves<'a> {
     fn rotate(&self, idx: usize) -> Option<f32> {
         self.rotate.get(idx - self.offset).or(self.rotate.last()).cloned().or_else(|| self.parent.and_then(|p| p.rotate(idx)))
     }
-    fn get<'o>(&self, options: &'o DrawOptions<'o>, num_chars: usize, idx: usize) -> Option<Move> {
+    fn get<'o>(&self, options: &DrawOptions<'o>, num_chars: usize, idx: usize) -> Option<Move> {
         let rel = |dx: Option<LengthX>, dy: Option<LengthY>| {
             let dx2: f32 = (idx + 1 .. idx + num_chars).flat_map(|idx| self.dx(idx).map(|l| l.resolve(options))).sum();
             let dy2: f32 = (idx + 1 .. idx + num_chars).flat_map(|idx| self.dy(idx).map(|l| l.resolve(options))).sum();

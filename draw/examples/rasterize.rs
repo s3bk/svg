@@ -1,5 +1,5 @@
 use svg_dom::{Svg};
-use svg_draw::{DrawSvg};
+use svg_draw::{DrawContext};
 use svg_text::{FontCollection, Font};
 use std::sync::Arc;
 use pathfinder_rasterize::Rasterizer;
@@ -13,14 +13,14 @@ fn main() {
     let data = std::fs::read(input).unwrap();
     let output = args.next().unwrap();
 
-    let fonts = Arc::new(FontCollection::from_fonts(vec![
+    let fonts = FontCollection::from_fonts(vec![
         Font::load(include_bytes!("../../resources/latinmodern-math.otf")),
         Font::load(include_bytes!("../../resources/NotoNaskhArabic-Regular.ttf")),
         Font::load(include_bytes!("../../resources/NotoSerifBengali-Regular.ttf")),
-    ]));
+    ]);
 
     let svg = Svg::from_data(&data).unwrap();
-    let scene = DrawSvg::new(svg, fonts).compose();
+    let scene = DrawContext::new(&svg, &fonts).compose();
     let image = Rasterizer::new_with_level(RendererLevel::D3D9).rasterize(scene, Some(ColorF::white()));
     image.save(&output).unwrap();
 }

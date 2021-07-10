@@ -15,7 +15,7 @@ pub struct TagSvg {
     pub attrs: Attrs,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Svg {
     pub named_items: ItemCollection,
     pub root: Arc<Item>,
