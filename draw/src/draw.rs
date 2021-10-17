@@ -390,7 +390,6 @@ impl<'a> DrawOptions<'a> {
     }
     pub fn apply(&self, scene: &mut Scene, attrs: &Attrs) -> DrawOptions<'a> {
         let common = self.common.apply(attrs);
-        dbg!(&attrs.clip_path);
         let clip_path = match attrs.clip_path {
             Some(ClipPathAttr::Ref(ref id)) => {
                 if let Some(Item::ClipPath(p)) = self.ctx.resolve(id).map(|t| &**t) {
