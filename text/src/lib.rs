@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::fmt::{self, Debug};
 use std::ops::Deref;
 use itertools::Itertools;
-use unic_segment::{WordBounds, GraphemeIndices};
+use unic_segment::{WordBoundIndices, GraphemeIndices};
 use unic_ucd_category::GeneralCategory;
 use unicode_joining_type::{get_joining_type, JoiningType};
 use isolang::Language;
@@ -199,7 +199,7 @@ fn process_chunk(font: &Font, font_idx: usize, language: Option<Tag>, rtl: bool,
     }
 
     for g in meta {
-        debug!("[\u{2068}{}\u{2069} 0x{:x}]", g.codepoint, g.codepoint as u32);
+        debug!("at byte {} [\u{2068}{}\u{2069} 0x{:x}]", g.idx, g.codepoint, g.codepoint as u32);
     }
     // (codepoint idx, glyph id)
     let mut gids: Vec<(usize, GlyphId)> = meta.iter()
@@ -315,9 +315,9 @@ impl FontCollection {
         };
 
         // we process each word separately to improve the visual appearance by trying to render a word in a single font
-        for word in WordBounds::new(string) {
+        for (word_off, word) in WordBoundIndices::new(string) {
             // do stuff… borrowed from allsorts
-            let mut meta: Vec<MetaGlyph> = word.char_indices().map(|(idx, c)| MetaGlyph::new(c, idx)).collect();
+            let mut meta: Vec<MetaGlyph> = word.char_indices().map(|(idx, c)| MetaGlyph::new(c, word_off+idx)).collect();
             compute_joining(&mut meta);
             
             // try to find a font that has all glyphs
