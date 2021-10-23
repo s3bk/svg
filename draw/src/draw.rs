@@ -433,7 +433,7 @@ impl<'a> DrawOptions<'a> {
         debug!("fill {:?} + {:?} -> {:?}", self.fill, attrs.fill, common.fill);
         debug!("stroke {:?} + {:?} -> {:?}", self.stroke, attrs.stroke, common.stroke);
         
-        DrawOptions { common, clip_path: dbg!(clip_path) }
+        DrawOptions { common, clip_path }
     }
     pub fn bounds_options(&self) -> BoundsOptions<'a> {
         BoundsOptions {

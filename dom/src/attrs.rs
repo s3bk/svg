@@ -108,7 +108,6 @@ impl Attrs {
 pub struct DashArray(pub Vec<Length>);
 impl Parse for DashArray {
     fn parse(s: &str) -> Result<DashArray, Error> {
-        dbg!(s);
         let lengths = Vec::<Length>::parse(s)?;
         let lengths = if lengths.len() % 2 == 0 {
             lengths

@@ -5,8 +5,9 @@ use font::{Glyph, GlyphId, SvgGlyph,
         OpenTypeFont, Tag,
         gsub::{GSub, Substitution, LanguageSystem},
         gdef::MarkClass,
-    }
+    },
 };
+pub use font::FontError;
 use pathfinder_geometry::{
     vector::{Vector2F, vec2f},
     transform2d::Transform2F,
@@ -25,7 +26,7 @@ use isolang::Language;
 pub struct Font(Arc<dyn font::Font + Sync + Send>);
 impl Font {
     pub fn load(data: &[u8]) -> Font {
-        Font(Arc::from(font::parse(data)))
+        Font(Arc::from(font::parse(data).unwrap()))
     }
 }
 impl std::ops::Deref for Font {
@@ -326,6 +327,7 @@ impl FontCollection {
                 let mut start = 0;
                 let mut meta_idx = 0;
                 let mut current_font = None;
+                info!("word: {}", word);
                 for (idx, grapheme) in GraphemeIndices::new(word) {
                     let meta_len = grapheme.chars().count();
                     if let Some((font_idx, font)) = font_for_text(fonts, grapheme, &meta[meta_idx .. meta_idx + meta_len]) {

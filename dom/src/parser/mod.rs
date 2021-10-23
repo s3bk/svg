@@ -53,6 +53,7 @@ pub fn parse_color(s: &str) -> Result<Color, Error> {
 pub fn parse_paint(s: &str) -> Result<Paint, Error> {
     match alt((
         map(tag("none"), |_| Paint::None),
+        map(tag("transparent"), |_| Paint::None),
         map(func_iri, |s| Paint::Ref(s.into())),
         map(color::color, Paint::Color),
     ))(s) {

@@ -22,7 +22,6 @@ mod prelude {
     };
     pub use svgtypes::{Length, LengthUnit};
 }
-use std::borrow::Borrow;
 
 mod path;
 mod rect;
