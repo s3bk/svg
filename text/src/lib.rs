@@ -30,8 +30,8 @@ impl Font {
     }
 }
 impl std::ops::Deref for Font {
-    type Target = dyn font::Font;
-    fn deref(&self) -> &dyn font::Font {
+    type Target = dyn font::Font + Sync + Send;
+    fn deref(&self) -> &(dyn font::Font + Sync + Send) {
         &*self.0
     }
 }
@@ -210,7 +210,7 @@ fn process_chunk(font: &Font, font_idx: usize, language: Option<Tag>, rtl: bool,
         .map(|m| (m.idx, font.gid_for_unicode_codepoint(m.codepoint as u32).unwrap()))
         .collect();
 
-    let otf = font.downcast::<OpenTypeFont>();
+    let otf = font.downcast_ref::<OpenTypeFont>();
     let gsub = otf.and_then(|f| f.gsub.as_ref());
     let gdef = otf.and_then(|f| f.gdef.as_ref());
     let gpos = otf.and_then(|f| f.gpos.as_ref());

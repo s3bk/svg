@@ -19,7 +19,7 @@ impl<T> Animate<T> where T: Parse + Clone {
         let mode = AnimationMode::parse_node(node, value, calc_mode)?;
         let fill = parse_attr_or(node, "fill", AnimationFill::Remove)?;
         let default_additive = match mode {
-            AnimationMode::Absolute { .. } | AnimationMode::Values { .. }=> Additive::Replace,
+            AnimationMode::Absolute { .. } | AnimationMode::Values { .. } => Additive::Replace,
             AnimationMode::Relative { .. } => Additive::Sum
         };
         let additive = parse_attr_or(node, "additive", default_additive)?;

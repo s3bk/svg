@@ -4,7 +4,7 @@ use pathfinder_view::{*};
 use pathfinder_renderer::scene::Scene;
 use pathfinder_geometry::transform2d::Transform2F;
 use svg_dom::Svg;
-use svg_draw::DrawSvg;
+use svg_draw::DrawContext;
 use svg_text::{Font, FontCollection};
 use std::sync::Arc;
 
@@ -14,7 +14,7 @@ use js_sys::Uint8Array;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 pub struct SvgView {
-    svg: DrawSvg,
+    svg: Svg,
     fonts: Arc<FontCollection>,
 }
 impl Interactive for SvgView {
@@ -23,11 +23,14 @@ impl Interactive for SvgView {
         "SVG".into()
     }
     fn scene(&mut self, ctx: &mut Context) -> Scene {
-        self.svg.compose_with_transform(Transform2F::from_scale(25.4 / 75.))
+        DrawContext::new(&self.svg, &self.fonts)
+        .compose_with_transform(
+            Transform2F::from_scale(25.4 / 75.)
+        )
     }
     fn event(&mut self, ctx: &mut Context, event: Vec<u8>) {
         match Svg::from_data(&event) {
-            Ok(svg) => self.svg = DrawSvg::new(svg, self.fonts.clone()),
+            Ok(svg) => self.svg = svg,
             Err(e) => {}
         }
     }
@@ -68,8 +71,8 @@ pub fn show(canvas: HtmlCanvasElement, context: WebGl2RenderingContext, data: &U
 
     let data: Vec<u8> = data.to_vec();
     let view = SvgView {
-        svg: DrawSvg::new(Svg::from_data(&data).unwrap(), fonts.0.clone()),
-        fonts: fonts.0.clone()
+        svg: Svg::from_data(&data).unwrap(),
+        fonts: fonts.0.clone(),
     };
 
     let mut config = Config::new(Box::new(EmbeddedResourceLoader));
