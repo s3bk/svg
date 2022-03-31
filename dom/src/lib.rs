@@ -1,5 +1,3 @@
-#![feature(trace_macros)]
-
 #[macro_use] extern crate log;
 use std::sync::Arc;
 use roxmltree::NodeType;
