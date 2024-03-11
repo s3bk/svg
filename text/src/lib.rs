@@ -242,8 +242,8 @@ fn process_chunk(font: &Font, font_idx: usize, language: Option<Tag>, rtl: bool,
 
             let (advance, offset) = match mark {
                 None => {
-                    let kerning = vec2f(last_gid.replace(gid).map(|left| font.kerning(left, gid)).unwrap_or_default(), 0.0);
-                    let advance = font.font_matrix() * (vec2f(glyph.metrics.advance, 0.0) + kerning);
+                    let kerning = font.font_matrix() * vec2f(last_gid.replace(gid).map(|left| font.kerning(left, gid)).unwrap_or_default(), 0.0);
+                    let advance = font.font_matrix() * vec2f(glyph.metrics.advance, 0.0) + kerning;
                     match rtl {
                         false => (advance, state.offset + kerning),
                         true => (advance * vec2f(-1.0, 1.0), state.offset - advance)
