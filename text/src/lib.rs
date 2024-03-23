@@ -304,7 +304,10 @@ fn font_for_text<'a>(fonts: &'a [Font], text: &str, meta: &[MetaGlyph]) -> Optio
 
 impl FontCollection {
     pub fn layout_run(&self, string: &str, rtl: bool, lang: Option<Language>) -> Layout {
-        let lang = lang.and_then(tags::lang_to_tag).or_else(|| guess_lang(string));
+        let lang = lang.and_then(tags::lang_to_tag);
+
+        #[cfg(feature="detect")]
+        let lang = lang.or_else(|| guess_lang(string));
 
         let fonts = &*self.fonts;
         if fonts.len() == 0 {
@@ -387,6 +390,7 @@ impl FontCollection {
 
 mod tags;
 
+#[cfg(feature="detect")]
 fn guess_lang(text: &str) -> Option<Tag> {
     whatlang::detect(text)
         .and_then(|info| Language::from_639_3(info.lang().code()))

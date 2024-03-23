@@ -6,6 +6,7 @@ edition = "2018"
 
 [features]
 svg = ["font/svg"]
+detect = ["whatlang"]
 default = ["svg"]
 
 [dependencies]
@@ -17,5 +18,5 @@ unicode-joining-type = "0.3"
 unic-ucd-category = "0.9"
 unic-segment = "0.9"
 log = "0.4"
-whatlang = "0.9"
+whatlang = { version = "0.9", optional = true }
 isolang = "2.4"
