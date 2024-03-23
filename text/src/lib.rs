@@ -1,12 +1,15 @@
 #[macro_use] extern crate log;
 
-use font::{Glyph, GlyphId, SvgGlyph,
+use font::{Glyph, GlyphId,
     opentype::{
         OpenTypeFont, Tag,
         gsub::{GSub, Substitution, LanguageSystem},
         gdef::MarkClass,
     },
 };
+#[cfg(feature="svg")]
+use font::SvgGlyph;
+
 pub use font::FontError;
 use pathfinder_geometry::{
     vector::{Vector2F, vec2f},
@@ -392,6 +395,8 @@ fn guess_lang(text: &str) -> Option<Tag> {
 
 pub struct GlyphVariant {
     pub common: Glyph,
+
+    #[cfg(feature="svg")]
     pub svg: Option<SvgGlyph>
 }
 
